@@ -27,8 +27,8 @@ Verify OpenBMC Services Auto Restart Policy
     ...  Create List  xyz.openbmc_project.Logging.service
     ...               xyz.openbmc_project.ObjectMapper.service
     ...               xyz.openbmc_project.State.BMC.service
-    ...               xyz.openbmc_project.State.Chassis.service
-    ...               xyz.openbmc_project.State.Host.service
+    #...               xyz.openbmc_project.State.Chassis.service
+    #...               xyz.openbmc_project.State.Host.service
     FOR  ${SERVICE}  IN  @{services}
       Check Service Autorestart  ${SERVICE}
     END
