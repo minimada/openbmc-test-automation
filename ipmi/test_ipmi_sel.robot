@@ -45,6 +45,7 @@ Verify Add SEL Entry
     Sleep  5s
 
     Create SEL
+    Sleep  1s
     # Get last SEL entry.
     ${resp}=  Run IPMI Standard Command  sel elist last 1
     Run Keywords  Should Contain  ${resp}  Temperature #${sensor_number}  AND
