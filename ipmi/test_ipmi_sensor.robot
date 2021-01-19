@@ -6,6 +6,7 @@ Resource          ../lib/openbmc_ffdc.robot
 Library           ../lib/ipmi_utils.py
 Variables         ../data/ipmi_raw_cmd_table.py
 
+Suite Setup       Run Keywords  Redfish.Login  AND  Redfish Power On  stack_mode=skip 
 Test Setup        Redfish.Login
 Test Teardown     Run Keywords  FFDC On Test Case Fail  AND
 ...  Redfish.Logout
