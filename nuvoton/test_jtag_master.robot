@@ -7,14 +7,6 @@ Resource         ../lib/connection_client.robot
 Suite Setup      Suite Setup Execution
 
 *** Variables ***
-${readid_svf}         readid.svf
-${cpld_firmware1}     2A01.svf
-${firmware_version1}  00 00 2a 01
-${cpld_firmware2}     2A02.svf
-${firmware_version2}  00 00 2a 02
-${readusercode_svf}   read_usercode.svf
-${jtag_dev}           /dev/jtag0
-${power_cycle_cmd}    /usr/sbin/i2cset -f -y 8 0x11 0xd9
 ${wrong_cpld}         0
 ${program_cpld}       0
 
@@ -47,6 +39,9 @@ Get File From SFTP Server
     [Documentation]  SCP Get File.
     [Arguments]      ${filename}
 
+    # Description of argument(s):
+    # filename   The file to be downloaded.
+
     Shell Cmd
     ...  scp ${SFTP_USER}@${SFTP_SERVER}:${SFTP_PATH}/${filename} ${filename}
 
@@ -54,6 +49,9 @@ Get File From SFTP Server
 Put File To BMC
     [Documentation]  SCP Put File.
     [Arguments]      ${filename}
+
+    # Description of argument(s):
+    # filename   The file to be uploaded.
 
     scp.Put File  ${filename}  /var/${filename}
 
@@ -64,6 +62,28 @@ Suite Setup Execution
     ...  ${TEST_PROGRAM_CPLD}
     ${value}=  Set Variable if  ${status} == ${TRUE}  ${TEST_PROGRAM_CPLD}  0
     Set Global Variable  ${program_cpld}  ${value}
+
+    ${code_base_dir_path}=  Get Code Base Dir Path
+    ${olympus_json}=  Evaluate
+    ...  json.load(open('${code_base_dir_path}data/oem/nuvoton/olympus.json'))  modules=json
+
+    ${cpld_firmware1}=  Set Variable  ${olympus_json["npcm7xx"]["cpld"]["fw1"]}
+    ${cpld_firmware2}=  Set Variable  ${olympus_json["npcm7xx"]["cpld"]["fw2"]}
+    ${firmware_version1}=  Set Variable  ${olympus_json["npcm7xx"]["cpld"]["fw1ver"]}
+    ${firmware_version2}=  Set Variable  ${olympus_json["npcm7xx"]["cpld"]["fw2ver"]}
+    ${readusercode_svf}=  Set Variable  ${olympus_json["npcm7xx"]["cpld"]["readusercode"]}
+    ${readid_svf}=  Set Variable  ${olympus_json["npcm7xx"]["cpld"]["readid"]}
+    ${jtag_dev}=  Set Variable  ${olympus_json["npcm7xx"]["jtag_dev"]}
+    ${power_cycle_cmd}=  Set Variable  ${olympus_json["npcm7xx"]["power_cycle_cmd"]}
+
+    Set Suite Variable  ${cpld_firmware1}
+    Set Suite Variable  ${cpld_firmware2}
+    Set Suite Variable  ${firmware_version1}
+    Set Suite Variable  ${firmware_version2}
+    Set Suite Variable  ${readusercode_svf}
+    Set Suite Variable  ${readid_svf}
+    Set Suite Variable  ${jtag_dev}
+    Set Suite Variable  ${power_cycle_cmd}
 
     Get File From SFTP Server  ${readid_svf}
     Run KeyWord If  ${program_cpld} == 1  Get File From SFTP Server  ${readusercode_svf}
@@ -82,6 +102,10 @@ Suite Setup Execution
 Program CPLD
     [Documentation]  Program CPLD.
     [Arguments]      ${svf_file}  ${version}
+
+    # Description of argument(s):
+    # svf_file   The firmware file.
+    # version    The firmware version.
 
     ${cmd}=  Catenate  loadsvf -d ${jtag_dev} -s /var/${svf_file}
     ${output}  ${stderr}  ${rc}=  BMC Execute Command  ${cmd}

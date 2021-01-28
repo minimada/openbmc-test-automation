@@ -9,10 +9,6 @@ Resource         ../lib/code_update_utils.robot
 Suite Setup      Suite Setup Execution
 
 *** Variables ***
-${BIOS1_TAR}         bios6.tar
-${BIOS2_TAR}         bios7.tar
-${BMC_IMAGE1_TAR}    test_1.static.mtd.all.tar
-${BMC_IMAGE2_TAR}    test_2.static.mtd.all.tar
 ${image-bios}        image-bios
 ${image-bios-sig}    image-bios.sig
 ${image-bmc}         image-bmc
@@ -30,14 +26,14 @@ Test BIOS Firmware Update
     Run Keyword  Wait For Host To Ping  ${OS_HOST}  3 mins
 
     Get LPC SHM Address
-    Update BIOS Firmware  ${BIOS1_TAR}
-    Verify BIOS Version  ${BIOS1_TAR}
+    Update BIOS Firmware  ${IMAGE_HOST_FILE_PATH_0}
+    Verify BIOS Version  ${IMAGE_HOST_FILE_PATH_0}
     BMC Execute Command
     ...  systemctl restart phosphor-ipmi-host.service
     Sleep  10s
     Get LPC SHM Address
-    Update BIOS Firmware  ${BIOS2_TAR}
-    Verify BIOS Version  ${BIOS2_TAR}
+    Update BIOS Firmware  ${IMAGE_HOST_FILE_PATH_1}
+    Verify BIOS Version  ${IMAGE_HOST_FILE_PATH_1}
     BMC Execute Command
     ...  systemctl restart phosphor-ipmi-host.service
     Sleep  10s
@@ -62,11 +58,11 @@ Test BMC Firmware Update
 
     Run Keyword  Wait For Host To Ping  ${OS_HOST}  3 mins
     Get LPC SHM Address
-    Update BMC Firmware  ${BMC_IMAGE1_TAR}
-    Verify BMC Version  ${BMC_IMAGE1_TAR}
+    Update BMC Firmware  ${IMAGE_BMC_FILE_PATH_0}
+    Verify BMC Version  ${IMAGE_BMC_FILE_PATH_0}
     Sleep  10s
-    Update BMC Firmware  ${BMC_IMAGE2_TAR}
-    Verify BMC Version  ${BMC_IMAGE2_TAR}
+    Update BMC Firmware  ${IMAGE_BMC_FILE_PATH_1}
+    Verify BMC Version  ${IMAGE_BMC_FILE_PATH_1}
 
 Test Invalid BMC Firmware Update
     [Documentation]  Test Invalid BMC firmware update over IPMI.
@@ -92,8 +88,6 @@ Suite Setup Execution
     Rprint Vars  os_state
     Run Keyword if  '${OS_BOOT_COMPLETE}' != '${os_state}'
     ...  Redfish Power On
-
-    Run Keyword  Wait For Host To Ping  ${OS_HOST}  3 mins
 
     # generate bad image for test
     ${cmd}=  Catenate  dd if=/dev/urandom of=${HOST_WORK_DIR}/${BAD_IMG} bs=1K count=4
@@ -133,6 +127,9 @@ BIOS Update Status Should Be
     [Documentation]  Check the Update Process is Activating.
     [Arguments]  ${state}
 
+    # Description of argument(s):
+    # state   The state of update process.
+
     ${cmd}=  Catenate  systemctl show --property=ActiveState --property=LoadState
     ...  --property=Result phosphor-ipmi-flash-bios-update.service
     ${output}  ${stderr}  ${rc}=  BMC Execute Command  ${cmd}
@@ -142,6 +139,9 @@ BIOS Update Status Should Be
 Verify BIOS Version
     [Documentation]  Verify BIOS Version.
     [Arguments]      ${image_file_path}
+
+    # Description of argument(s):
+    # image_file_path   Path to the image tarball.
 
     ${image_version}=  Get Version Tar  ${image_file_path}
     Rprint Vars  image_version
@@ -170,6 +170,9 @@ Verify BMC Version
 Update BIOS Firmware
     [Documentation]  Update BIOS Firmware.
     [Arguments]      ${image_file_path}
+
+    # Description of argument(s):
+    # image_file_path   Path to the image tarball.
 
     OperatingSystem.File Should Exist  ${image_file_path}
 
@@ -204,6 +207,9 @@ Update BIOS Firmware
 Update BMC Firmware
     [Documentation]  Update BIOS Firmware.
     [Arguments]      ${image_file_path}
+
+    # Description of argument(s):
+    # image_file_path   Path to the image tarball.
 
     OperatingSystem.File Should Exist  ${image_file_path}
 
