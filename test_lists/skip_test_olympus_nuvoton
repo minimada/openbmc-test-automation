@@ -113,6 +113,9 @@
 # That against this test case. Thus, we skip this temporarily and wait community response.
 -e Install_Same_Image_Two_Times
 
+# event log: no max cap
+-e Test_Event_Log_Wrapping
+
 -v MACHINE_TYPE:olympus-nuvoton
 -v log_file_path:log.txt
 -v FORCE_UPDATE:1
