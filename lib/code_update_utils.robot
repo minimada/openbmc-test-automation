@@ -649,6 +649,7 @@ Get Image Version From SFTP Server
 
     Shell Cmd
     ...  scp ${username}@${server_host}:${image_file_name} tftp_image.tar
+    ...  show_err=${1}
     ${version}=  Get Version Tar  tftp_image.tar
     OperatingSystem.Remove File  tftp_image.tar
 
