@@ -41,13 +41,13 @@ Verify IPMI Inband Network Configuration
 
     Redfish Power On
 
-    Set IPMI Inband Network Configuration  10.10.10.10  255.255.255.0  10.10.10.10
+    Set IPMI Inband Network Configuration  10.10.10.10  255.255.255.0  10.10.10.254
     Sleep  10
 
     ${lan_print_output}=  Get LAN Print Dict  ${CHANNEL_NUMBER}  ipmi_cmd_type=inband
     Valid Value  lan_print_output['IP Address']  ["10.10.10.10"]
     Valid Value  lan_print_output['Subnet Mask']  ["255.255.255.0"]
-    Valid Value  lan_print_output['Default Gateway IP']  ["10.10.10.10"]
+    Valid Value  lan_print_output['Default Gateway IP']  ["10.10.10.254"]
 
 
 Disable VLAN Via IPMI When Multiple VLAN Exist On BMC
