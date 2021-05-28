@@ -30,7 +30,7 @@ ${multicast_ip}            224.6.6.6
 ${out_of_range_ip}         10.7.7.256
 ${test_ipv4_addr2}         10.7.7.8
 
-# Valid netmask is 4 bytes long and has continuos block of 1s.
+# Valid netmask is 4 bytes long and has continuous block of 1s.
 # Maximum valid value in each octet is 255 and least value is 0.
 # 253 is not valid, as binary value is 11111101.
 ${invalid_netmask}         255.255.253.0
@@ -52,8 +52,7 @@ ${less_octet_ip}           10.3.36
 ${network_id}              192.168.1.0
 ${hex_ip}                  0xa.0xb.0xc.0xd
 ${negative_ip}             10.-7.-7.7
-${hex_ip}                  0xa.0xb.0xc.0xd
-@{static_name_servers}     192.5.5.5
+@{static_name_servers}     10.5.5.5
 @{null_value}              null
 @{empty_dictionary}        {}
 @{string_value}            aa.bb.cc.dd
@@ -494,6 +493,135 @@ Modify IPv4 Address And Verify
      Update IP Address  ${test_ipv4_addr}  ${test_ipv4_addr2}  ${test_subnet_mask}  ${test_gateway}
 
 
+Configure Invalid Values For DNS Server
+    [Documentation]  Configure invalid values for DNS server and expect an error.
+    [Tags]  Configure_Invalid_Value_For_DNS_Server
+    [Setup]  DNS Test Setup Execution
+    [Template]  Configure Static Name Servers
+    [Teardown]  Run Keywords
+    ...  Configure Static Name Servers  AND  Test Teardown Execution
+
+     # static_name_servers        valid_status_codes
+      0xa.0xb.0xc.0xd             ${HTTP_BAD_REQUEST}
+      10.-7.-7.-7                 ${HTTP_BAD_REQUEST}
+      10.3.36                     ${HTTP_BAD_REQUEST}
+      @@@.%%.44.11                ${HTTP_BAD_REQUEST}
+
+
+Config Multiple DNS Servers And Verify
+    [Documentation]  Config multiple DNS servers and verify.
+    [Tags]  Config_Multiple_DNS_Servers_And_Verify
+    [Setup]  DNS Test Setup Execution
+    [Teardown]  Run Keywords
+    ...  Configure Static Name Servers  AND  Test Teardown Execution
+
+     @{list_name_servers}=  Create List  10.5.5.10  10.20.5.10  10.5.6.7
+     Configure Static Name Servers  ${list_name_servers}
+     Verify CLI and Redfish Nameservers
+
+
+Configure And Verify Multiple Static IPv4 Addresses
+    [Documentation]  Configure multiple static ipv4 address via Redfish and verify.
+    [Tags]  Configure_And_Verify_Multiple_Static_IPv4_Addresses
+    [Teardown]  Run Keywords  Delete Multiple Static IPv4 Addresses  ${test_ipv4_addresses}
+    ...  AND  Test Teardown Execution
+
+    ${test_ipv4_addresses}=  Create List  ${test_ipv4_addr}  ${test_ipv4_addr2}
+    Configure Multiple Static IPv4 Addresses   ${test_ipv4_addresses}  ${test_subnet_mask}  ${test_gateway}
+
+
+Configure Multiple Static IPv4 Addresses And Check Persistency
+    [Documentation]  Configure multiple static ipv4 address via Redfish and check persistency.
+    [Tags]  Configure_Multiple_Static_IPv4_Addresses_And_Check_Persistency
+    [Teardown]  Run Keywords  Delete Multiple Static IPv4 Addresses  ${test_ipv4_addresses}
+    ...  AND  Test Teardown Execution
+
+    ${test_ipv4_addresses}=  Create List  ${test_ipv4_addr}  ${test_ipv4_addr2}
+    Configure Multiple Static IPv4 Addresses  ${test_ipv4_addresses}  ${test_subnet_mask}  ${test_gateway}
+
+    # Reboot BMC and verify persistency.
+    OBMC Reboot (off)
+    Redfish.Login
+    FOR  ${ip}  IN  @{test_ipv4_addresses}
+      Verify IP And Netmask On BMC  ${ip}  ${test_subnet_mask}
+    END
+
+
+Configure And Verify Multiple IPv4 Addresses
+    [Documentation]  Configure multiple IPv4 addresses and verify.
+    [Tags]  Configure_And_Verify_Multiple_IPv4_Addresse
+    [Teardown]  Run Keywords
+    ...  Delete IP Address  ${test_ipv4_addr}  AND  Delete IP Address  ${test_ipv4_addr2}
+    ...  AND  Test Teardown Execution
+
+    ${ip1}=  Create dictionary  Address=${test_ipv4_addr}
+    ...  SubnetMask=255.255.0.0  Gateway=${test_gateway}
+    ${ip2}=  Create dictionary  Address=${test_ipv4_addr2}
+    ...  SubnetMask=255.255.252.0  Gateway=${test_gateway}
+
+    ${empty_dict}=  Create Dictionary
+    ${patch_list}=  Create List
+    ${network_configurations}=  Get Network Configuration
+    ${num_entries}=  Get Length  ${network_configurations}
+
+    FOR  ${INDEX}  IN RANGE  0  ${num_entries}
+      Append To List  ${patch_list}  ${empty_dict}
+    END
+
+    # We need not check for existence of IP on BMC while adding.
+    Append To List  ${patch_list}  ${ip1}  ${ip2}
+    ${payload}=  Create Dictionary  IPv4StaticAddresses=${patch_list}
+    ${active_channel_config}=  Get Active Channel Config
+    ${ethernet_interface}=  Set Variable  ${active_channel_config['${CHANNEL_NUMBER}']['name']}
+    Redfish.patch  ${REDFISH_NW_ETH_IFACE}${ethernet_interface}  body=&{payload}
+    ...  valid_status_codes=[${HTTP_OK}, ${HTTP_NO_CONTENT}]
+
+    # Note: Network restart takes around 15-18s after patch request processing.
+    Sleep  ${NETWORK_TIMEOUT}s
+    Wait For Host To Ping  ${OPENBMC_HOST}  ${NETWORK_TIMEOUT}
+    Verify IP On BMC  ${test_ipv4_addr}
+    Verify IP On BMC  ${test_ipv4_addr2}
+
+
+Config Multiple DNS Servers And Check Persistency
+    [Documentation]  Config multiple DNS and check persistency.
+    [Tags]  Config_Multiple_DNS_Servers_And_Check_Persistency
+    [Setup]  DNS Test Setup Execution
+    [Teardown]  Run Keywords
+    ...  Configure Static Name Servers  AND  Test Teardown Execution
+
+    @{list_name_servers}=  Create List  10.5.5.10  10.20.5.10  10.5.6.7
+    Configure Static Name Servers  ${list_name_servers}
+
+    # Reboot BMC and verify persistency.
+    OBMC Reboot (off)
+    Redfish.Login
+    Verify CLI and Redfish Nameservers
+
+
+Configure Static IP Without Using Gateway And Verify
+    [Documentation]  Configure static IP without using gateway and verify error.
+    [Tags]  Configure_Static_IP_Without_Using_Gateway_And_Verify
+
+    ${ip}=  Create dictionary  Address=${test_ipv4_addr}
+    ...  SubnetMask=${test_subnet_mask}
+    ${empty_dict}=  Create Dictionary
+    ${patch_list}=  Create List
+    ${network_configurations}=  Get Network Configuration
+
+    ${num_entries}=  Get Length  ${network_configurations}
+    FOR  ${INDEX}  IN RANGE  0  ${num_entries}
+      Append To List  ${patch_list}  ${empty_dict}
+    END
+
+    # We need not check for existence of IP on BMC while adding.
+    Append To List  ${patch_list}  ${ip}
+    ${payload}=  Create Dictionary  IPv4StaticAddresses=${patch_list}
+    ${active_channel_config}=  Get Active Channel Config
+    ${ethernet_interface}=  Set Variable  ${active_channel_config['${CHANNEL_NUMBER}']['name']}
+    Redfish.patch  ${REDFISH_NW_ETH_IFACE}${ethernet_interface}
+    ...  body=&{payload}  valid_status_codes=[${HTTP_BAD_REQUEST}]
+
 *** Keywords ***
 
 Test Setup Execution
@@ -595,6 +723,10 @@ Configure Static Name Servers
     ${active_channel_config}=  Get Active Channel Config
     ${ethernet_interface}=  Set Variable  ${active_channel_config['${CHANNEL_NUMBER}']['name']}
 
+    ${type} =  Evaluate  type($static_name_servers).__name__
+    ${static_name_servers}=  Set Variable If  '${type}'=='str'
+    ...  '${static_name_servers}'  ${static_name_servers}
+
     # Currently BMC is sending 500 response code instead of 400 for invalid scenarios.
     Redfish.Patch  ${REDFISH_NW_ETH_IFACE}${ethernet_interface}
     ...  body={'StaticNameServers': ${static_name_servers}}
@@ -680,7 +812,8 @@ Suite Setup Execution
 
 Update IP Address
     [Documentation]  Update IP address of BMC.
-    [Arguments]  ${ip}  ${new_ip}  ${netmask}  ${gw_ip}  ${valid_status_codes}=${HTTP_OK}
+    [Arguments]  ${ip}  ${new_ip}  ${netmask}  ${gw_ip}
+    ...  ${valid_status_codes}=[${HTTP_OK}, ${HTTP_NO_CONTENT}]
 
     # Description of argument(s):
     # ip                  IP address to be replaced (e.g. "10.7.7.7").
@@ -710,14 +843,38 @@ Update IP Address
     # Run patch command only if given IP is found on BMC
     ${data}=  Create Dictionary  IPv4StaticAddresses=${patch_list}
 
-    ${active_channel_config}=  Get Active Channel Config
-    ${ethernet_interface}=  Set Variable  ${active_channel_config['${CHANNEL_NUMBER}']['name']}
-
-    Redfish.patch  ${REDFISH_NW_ETH_IFACE}${ethernet_interface}  body=&{data}  valid_status_codes=[${valid_status_codes}]
+    Redfish.patch  ${REDFISH_NW_ETH1_URI}  body=&{data}  valid_status_codes=${valid_status_codes}
 
     # Note: Network restart takes around 15-18s after patch request processing.
     Sleep  ${NETWORK_TIMEOUT}s
     Wait For Host To Ping  ${OPENBMC_HOST}  ${NETWORK_TIMEOUT}
 
     Verify IP On BMC  ${new_ip}
+    Validate Network Config On BMC
+
+Configure Multiple Static IPv4 Addresses
+    [Documentation]  Configure multiple static ipv4 address via Redfish and verify.
+    [Arguments]  ${ip_addreses}  ${subnet_mask}  ${gateway}
+
+    # Description of argument(s):
+    # ip_addreses         A list of IP addresses to be added (e.g.["10.7.7.7"]).
+    # subnet_mask         Subnet mask for the IP to be added (e.g. "255.255.0.0").
+    # gateway             Gateway for the IP to be added (e.g. "10.7.7.1").
+
+    FOR  ${ip}  IN   @{ip_addreses}
+       Add IP Address  ${ip}  ${subnet_mask}  ${gateway}
+    END
+    Validate Network Config On BMC
+
+
+Delete Multiple Static IPv4 Addresses
+    [Documentation]  Delete multiple static ipv4 address via Redfish.
+    [Arguments]  ${ip_addreses}
+
+    # Description of argument(s):
+    # ip_addreses         A list of IP addresses to be deleted (e.g.["10.7.7.7"]).
+
+    FOR  ${ip}  IN   @{ip_addreses}
+       Delete IP Address  ${ip}
+    END
     Validate Network Config On BMC

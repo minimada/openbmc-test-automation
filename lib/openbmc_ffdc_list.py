@@ -5,6 +5,10 @@ r"""
 #              commands and files to be collected as a part
 #              of the test case failure.
 """
+import os
+
+from robot.libraries.BuiltIn import BuiltIn
+
 # -------------------
 # FFDC default list
 # -------------------
@@ -46,7 +50,10 @@ FFDC_BMC_FILE = {
         'BMC_procinfo.txt': 'cat /proc/cpuinfo >/tmp/BMC_procinfo.txt 2>&1',
         'BMC_meminfo.txt': 'cat /proc/meminfo >/tmp/BMC_meminfo.txt 2>&1',
         'BMC_systemd.txt': 'systemctl status --all >/tmp/BMC_systemd.txt 2>&1',
+        'BMC_failed_service.txt': 'systemctl list-units --failed >/tmp/BMC_failed_service.txt 2>&1',
+        'BMC_list_service.txt': 'systemctl list-jobs >/tmp/BMC_list_service.txt 2>&1',
         'BMC_obmc_console.txt': 'cat /var/log/obmc-console.log >/tmp/BMC_obmc_console.txt 2>&1',
+        'BMC_obmc_console1.txt': 'cat /var/log/obmc-console1.log >/tmp/BMC_obmc_console1.txt 2>&1',
         'PEL_logs_list.json': 'peltool -l >/tmp/PEL_logs_list.json 2>&1',
         'PEL_logs_display.json': 'peltool -a >/tmp/PEL_logs_display.json 2>&1',
     },
@@ -148,10 +155,24 @@ FFDC_METHOD_CALL = {
         'Sys Inventory Files': 'System Inventory Files',
         'Dump Log': 'Collect Dump Log',
         'Dump Files': 'SCP Dump Files',
+        'Dump HB Files': 'SCP Dump HB Files',
         'PEL Files': 'Collect PEL Log',
         'Redfish Log': 'Enumerate Redfish Resources',
     },
 }
+
+try:
+    platform_arch_type = os.environ.get('PLATFORM_ARCH_TYPE', '') or \
+        BuiltIn().get_variable_value("${PLATFORM_ARCH_TYPE}", default="power")
+except RobotNotRunningError:
+    pass
+
+# Filter the logs based on platform type.
+if platform_arch_type == "x86":
+    del FFDC_BMC_FILE['BMC FILES']['PEL_logs_list.json']
+    del FFDC_BMC_FILE['BMC FILES']['PEL_logs_display.json']
+    del FFDC_METHOD_CALL['BMC LOGS']['PEL Files']
+
 # -----------------------------------------------------------------
 # base class for FFDC default list
 

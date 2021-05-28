@@ -2,9 +2,10 @@
 
 Documentation  Test OpenBMC GUI "SSL Certificates" sub-menu of "Access control".
 
-Resource        ../../lib/resource.robot
+Resource        ../../lib/gui_resource.robot
 Resource        ../../../lib/certificate_utils.robot
 
+Suite Setup     Suite Setup Execution
 Suite Teardown  Close Browser
 Test Setup      Test Setup Execution
 
@@ -26,6 +27,7 @@ ${xpath_input_challenge_password}  //*[@data-test-id='modalGenerateCsr-input-cha
 ${xpath_input_contact_person}      //*[@data-test-id='modalGenerateCsr-input-contactPerson']
 ${xpath_input_email_address}       //*[@data-test-id='modalGenerateCsr-input-emailAddress']
 ${xpath_generate_csr_submit}       //*[@data-test-id='modalGenerateCsr-button-ok']
+${xpath_csr_cancel_button}         //button[contains(text(),"Cancel")]
 ${xpath_input_alternate_name}      //input[@id='alternate-name']
 ${xpath_select_algorithm_button}   //*[@data-test-id='modalGenerateCsr-select-keyPairAlgorithm']
 
@@ -56,22 +58,23 @@ Verify Existence Of Add Certificate Button
 Verify Generate CSR Certificate Button
     [Documentation]  Verify existence of all the fields of CSR generation.
     [Tags]  Verify_Generate_CSR_Certificate_Button
+    [Teardown]  Click Element  ${xpath_csr_cancel_button}
 
-     Page Should Contain Element  ${xpath_generate_csr_button}
-     Click Element  ${xpath_generate_csr_button}
-     Wait Until Page Contains Element  ${xpath_generate_csr_heading}
-     Page Should Contain Element  ${xpath_select_certificate_type}
-     Page Should Contain Element  ${xpath_select_country}
-     Page Should Contain Element  ${xpath_input_state}
-     Page Should Contain Element  ${xpath_input_city}
-     Page Should Contain Element  ${xpath_input_company_name}
-     Page Should Contain Element  ${xpath_input_common_name}
-     Page Should Contain Element  ${xpath_input_challenge_password}
-     Page Should Contain Element  ${xpath_input_contact_person}
-     Page Should Contain Element  ${xpath_input_email_address}
-     Page Should Contain Element  ${xpath_input_alternate_name}
-     Page Should Contain Element  ${xpath_select_algorithm_button}
-     Page Should Contain Element  ${xpath_generate_csr_submit}
+    Page Should Contain Element  ${xpath_generate_csr_button}
+    Click Element  ${xpath_generate_csr_button}
+    Wait Until Page Contains Element  ${xpath_generate_csr_heading}
+    Page Should Contain Element  ${xpath_select_certificate_type}
+    Page Should Contain Element  ${xpath_select_country}
+    Page Should Contain Element  ${xpath_input_state}
+    Page Should Contain Element  ${xpath_input_city}
+    Page Should Contain Element  ${xpath_input_company_name}
+    Page Should Contain Element  ${xpath_input_common_name}
+    Page Should Contain Element  ${xpath_input_challenge_password}
+    Page Should Contain Element  ${xpath_input_contact_person}
+    Page Should Contain Element  ${xpath_input_email_address}
+    Page Should Contain Element  ${xpath_input_alternate_name}
+    Page Should Contain Element  ${xpath_select_algorithm_button}
+    Page Should Contain Element  ${xpath_generate_csr_submit}
 
 
 Verify Installed CA Certificate
@@ -81,11 +84,37 @@ Verify Installed CA Certificate
     Delete All CA Certificate Via Redfish
 
     # Install CA certificate via Redfish.
-    ${file_data}=  Generate Certificate File Data
+    ${file_data}=  Generate Certificate File Data  CA
     Install Certificate File On BMC  ${REDFISH_CA_CERTIFICATE_URI}  ok  data=${file_data}
 
     # Verify CA certificate availability in GUI.
-    Page Should Contain  CA Certificate
+    Wait Until Page Contains  CA Certificate  timeout=10
+
+
+Verify Installed HTTPS Certificate
+    [Documentation]  Install HTTPS certificate via Redfish and verify it in GUI.
+    [Tags]  Verify_Installed_HTTPS_Certificate
+
+    # Install HTTPS certificate.
+    ${file_data}=  Generate Certificate File Data  Server
+    Install Certificate File On BMC  ${REDFISH_HTTPS_CERTIFICATE_URI}  ok  data=${file_data}
+
+    # Verify certificate is available in GUI.
+    Wait Until Page Contains  HTTPS Certificate  timeout=10
+
+
+Verify Installed LDAP Certificate
+    [Documentation]  Install LDAP certificate via Redfish and verify it in GUI.
+    [Tags]  Verify_Installed_LDAP_Certificate
+
+    Delete Certificate Via BMC CLI  Client
+
+    # Install LDAP certificate.
+    ${file_data}=  Generate Certificate File Data  Client
+    Install Certificate File On BMC  ${REDFISH_LDAP_CERTIFICATE_URI}  ok  data=${file_data}
+
+    # Verify certificate is available in GUI.
+    Wait Until Page Contains  LDAP Certificate  timeout=10
 
 
 *** Keywords ***
@@ -93,7 +122,15 @@ Verify Installed CA Certificate
 Generate Certificate File Data
     [Documentation]  Generate data of certificate file.
 
-    ${cert_file_path}=  Generate Certificate File Via Openssl  Valid Certificate  365
+    [Arguments]  ${cert_type}
+
+    # Description of Arguments(s):
+    # cert_type      Certificate type (e.g. "Client" or  "CA").
+
+    ${cert_file_path}=  Run Keyword If  '${cert_type}' == 'Client' or 'Server'
+    ...    Generate Certificate File Via Openssl  Valid Certificate Valid Privatekey
+    ...  ELSE IF  '${cert_type}' == 'CA'
+    ...    Generate Certificate File Via Openssl  Valid Certificate
     ${bytes}=  OperatingSystem.Get Binary File  ${cert_file_path}
     ${file_data}=  Decode Bytes To String  ${bytes}  UTF-8
 

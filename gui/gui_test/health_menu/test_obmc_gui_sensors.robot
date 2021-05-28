@@ -1,7 +1,7 @@
 *** Settings ***
 
 Documentation   Test OpenBMC GUI "Sensors" sub-menu.
-Resource        ../../lib/resource.robot
+Resource        ../../lib/gui_resource.robot
 
 Suite Setup     Launch Browser And Login GUI
 Suite Teardown  Close Browser
@@ -16,6 +16,7 @@ ${xpath_filter_ok}           //*[@data-test-id='tableFilter-checkbox-OK']
 ${xpath_filter_warning}      //*[@data-test-id='tableFilter-checkbox-Warning']
 ${xpath_filter_critical}     //*[@data-test-id='tableFilter-checkbox-Critical']
 ${xpath_filter_clear_all}    //*[@data-test-id='tableFilter-button-clearAll']
+${xpath_selected_severity}   //*[@class="d-inline-block mb-0"]
 
 *** Test Cases ***
 
@@ -49,8 +50,8 @@ Verify Search Text Entered
     [Tags]  Verify_Search_Text_Entered
 
     Wait Until Page Contains Element  ${xpath_sensors_search}
-    Input Text  ${xpath_sensors_search}  temp
-    Wait Until Page Contains  p0 vcs temp  timeout=15
+    Input Text  ${xpath_sensors_search}  ambi
+    Wait Until Page Contains  ambient  timeout=15
 
 
 Verify Sensors Filter From Server Health Clickable
@@ -64,6 +65,54 @@ Verify Sensors Filter From Server Health Clickable
     Page Should Contain Element  ${xpath_filter_warning}
     Page Should Contain Element  ${xpath_filter_critical}
     Page Should Contain Element  ${xpath_filter_clear_all}
+
+
+Verify Invalid Text In Filter Sensors Search
+    [Documentation]  Input invalid text in sensor search and verify error message.
+    [Tags]  Verify_Invalid_Text_In_Filter_Sensors_Search
+
+    Wait Until Page Contains Element  ${xpath_sensors_search}
+    Input Text  ${xpath_sensors_search}  abcd123
+
+    Page Should Contain  No items match the search query
+
+
+Verify Clear All Button In Sensor Page
+    [Documentation]  Select all severity and verify clear all button de-selects all severity.
+    [Tags]  Verify_Clear_All_Button_In_Sensor_Page
+
+    Wait Until Page Contains Element  ${xpath_sensors_filter}  timeout=15s
+    Click Element  ${xpath_sensors_filter}
+
+    # Select all severity from filter.
+    Click Element At Coordinates  ${xpath_filter_ok}  0  0
+    Click Element At Coordinates  ${xpath_filter_warning}  0  0
+    Click Element At Coordinates  ${xpath_filter_critical}  0  0
+    Element Should Be Visible  ${xpath_selected_severity}
+
+    # De-select all severity using clear all button in filter.
+    Click Element At Coordinates  ${xpath_filter_clear_all}  0  0
+    Click Element  ${xpath_sensors_filter}
+
+    Element Should Not Be Visible  ${xpath_selected_severity}
+
+
+Verify Filter By Severity Button OK
+    [Documentation]  Select severity button OK from filter and verify.
+    [Tags]  Verify_Filter_By_Severity_Button_OK
+
+    Wait Until Page Contains Element  ${xpath_sensors_filter}  timeout=15s
+    Click Element  ${xpath_sensors_filter}
+
+    # Select OK severity from filter.
+    Wait Until Page Contains Element  ${xpath_filter_ok}  timeout=5s
+
+    Click Element At Coordinates  ${xpath_filter_ok}  0  0
+    Click Element  ${xpath_sensors_filter}
+
+    Element Should Contain  ${xpath_selected_severity}  OK
+    Element Should Not Contain  ${xpath_selected_severity}  Warning
+    Element Should Not Contain  ${xpath_selected_severity}  Critical
 
 
 *** Keywords ***

@@ -107,6 +107,7 @@ DUMP_ENTRY_URI = DUMP_URI + 'entry/'
 DUMP_DOWNLOAD_URI = "/download/dump/"
 # The path on the BMC where dumps are stored.
 DUMP_DIR_PATH = "/var/lib/phosphor-debug-collector/dumps/"
+DUMP_HB_DIR_PATH = "/var/lib/phosphor-debug-collector/hostbootdump/"
 
 # Boot progress variables.
 STATE_DBUS_BASE = 'xyz.openbmc_project.State.'
@@ -136,6 +137,8 @@ BOOT_SOURCE_CDROM = 'xyz.openbmc_project.Control.Boot.Source.Sources.ExternalMed
 BOOT_MODE_SAFE = 'xyz.openbmc_project.Control.Boot.Mode.Modes.Safe'
 BOOT_MODE_SETUP = 'xyz.openbmc_project.Control.Boot.Mode.Modes.Setup'
 BOOT_MODE_REGULAR = 'xyz.openbmc_project.Control.Boot.Mode.Modes.Regular'
+BOOT_TYPE_LEGACY = 'xyz.openbmc_project.Control.Boot.Type.Types.Legacy'
+BOOT_TYPE_EFI = 'xyz.openbmc_project.Control.Boot.Type.Types.EFI'
 
 # Time variables.
 TIME_DBUS_BASE = 'xyz.openbmc_project.Time.'
@@ -204,6 +207,10 @@ CA_CERTIFICATE_URI = OPENBMC_BASE_URI + 'certs/authority/ldap'
 # EventLog variables.
 SYSTEM_BASE_URI = REDFISH_BASE_URI + 'Systems/system/'
 EVENT_LOG_URI = SYSTEM_BASE_URI + 'LogServices/EventLog/'
+DUMP_URI = SYSTEM_BASE_URI + 'LogServices/Dump/'
+
+BIOS_ATTR_URI = SYSTEM_BASE_URI + 'Bios'
+BIOS_ATTR_SETTINGS_URI = BIOS_ATTR_URI + '/Settings'
 
 '''
   QEMU HTTPS variable:

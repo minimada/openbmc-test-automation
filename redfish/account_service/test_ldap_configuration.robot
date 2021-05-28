@@ -911,5 +911,5 @@ Update LDAP User Role And Read Network Configuration
     Redfish.Logout
 
     Redfish.Login  ${LDAP_USER}  ${LDAP_USER_PASSWORD}
-    Redfish.Get  ${REDFISH_NW_ETH0_URI}  valid_status_codes=[${valid_status_code}]
+    Redfish.Get  ${REDFISH_NW_ETH1_URI}  valid_status_codes=[${valid_status_code}]
 

@@ -88,6 +88,13 @@ These documents contain details on developing OpenBMC test code and debugging.
  - [Code Update](https://github.com/openbmc/openbmc-test-automation/blob/master/docs/code_update.md): Currently supported BMC and PNOR update.
  - [Certificate Generate](https://github.com/openbmc/openbmc-test-automation/blob/master/docs/certificate_generate.md): Steps to create and install CA signed certificate.
 
+## Supported Systems Architecture ##
+
+  OpenBMC test infrastructure is proven capable of running on:
+  - POWER
+  - x86
+  systems running OpenBMC firmware stack.
+
 ## Testing Setup Steps ##
 
 To verify the installation setup is completed and ready to execute.
@@ -152,6 +159,8 @@ modern and secure management of scalable platform hardware.
 `redfish/extended/`: Contains test cases for combined legacy REST and DMTF Redfish-related
                      feature supported on OpenBMC.
 
+Note: Work in progress test development parameter `-v REDFISH_SUPPORT_TRANS_STATE:1` to force
+      the test suites to execute in redfish mode only.
 
 
 ## Quickstart ##
@@ -295,6 +304,14 @@ version 2.3.1 or greater is required) or via Robot CLI command.
     Example using tox testing a test suite for 5 iterations "witherspoon":
     ```
     OPENBMC_HOST=x.x.x.x  LOOP_TEST_COMMAND="tests/test_fw_version.robot" ITERATION=5 OPENBMC_SYSTEMMODEL=witherspoon tox -e witherspoon -- ./extended/full_suite_regression.robot
+    ```
+
+* Host CPU architecture
+
+    By default openbmc-test-automation framework assumes that host CPU is based on the POWER architecture.
+    If your host CPU is x86 add `-v PLATFORM_ARCH_TYPE:x86` variable setting to your CLI commands or set an environment variable:
+    ```
+    $ export PLATFORM_ARCH_TYPE=x86
     ```
 
 **Jenkins jobs tox commands**

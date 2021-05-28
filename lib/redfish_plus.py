@@ -7,6 +7,15 @@ See redfish_plus class prolog below for details.
 from redfish.rest.v1 import HttpClient
 import gen_print as gp
 import func_args as fa
+import requests
+import json
+from robot.libraries.BuiltIn import BuiltIn
+
+
+host = BuiltIn().get_variable_value("${OPENBMC_HOST}")
+MTLS_ENABLED = BuiltIn().get_variable_value("${MTLS_ENABLED}")
+CERT_DIR_PATH = BuiltIn().get_variable_value("${CERT_DIR_PATH}")
+VALID_CERT = BuiltIn().get_variable_value("${VALID_CERT}")
 
 
 def valid_http_status_code(status, valid_status_codes):
@@ -98,11 +107,18 @@ class redfish_plus(HttpClient):
 
         As part of a robot test, the programmer has logged out to verify that the get request will generate a
         status code of 401 (i.e. "Unauthorized").
+
+        Timeout for GET/POST/PATCH/DELETE operations. By default 30 seconds, else user defined value.
+        Similarly, Max retry by default 10 attempt for the operation, else user defined value.
         """
         gp.qprint_executing(stack_frame_ix=3, style=gp.func_line_style_short)
         # Convert python string object definitions to objects (mostly useful for robot callers).
         args = fa.args_to_objects(args)
         kwargs = fa.args_to_objects(kwargs)
+        timeout = kwargs.pop('timeout', 30)
+        self._timeout = timeout
+        max_retry = kwargs.pop('max_retry', 10)
+        self._max_retry = max_retry
         valid_status_codes = kwargs.pop('valid_status_codes', [200])
         response = func(*args, **kwargs)
         valid_http_status_code(response.status, valid_status_codes)
@@ -110,28 +126,134 @@ class redfish_plus(HttpClient):
 
     # Define rest function wrappers.
     def get(self, *args, **kwargs):
-        return self.rest_request(super(redfish_plus, self).get, *args,
-                                 **kwargs)
+
+        if MTLS_ENABLED == 'True':
+            return self.rest_request(self.get_with_mtls, *args, **kwargs)
+        else:
+            return self.rest_request(super(redfish_plus, self).get, *args,
+                                     **kwargs)
 
     def head(self, *args, **kwargs):
-        return self.rest_request(super(redfish_plus, self).head, *args,
-                                 **kwargs)
+
+        if MTLS_ENABLED == 'True':
+            return self.rest_request(self.head_with_mtls, *args, **kwargs)
+        else:
+            return self.rest_request(super(redfish_plus, self).head, *args,
+                                     **kwargs)
 
     def post(self, *args, **kwargs):
-        return self.rest_request(super(redfish_plus, self).post, *args,
-                                 **kwargs)
+
+        if MTLS_ENABLED == 'True':
+            return self.rest_request(self.post_with_mtls, *args, **kwargs)
+        else:
+            return self.rest_request(super(redfish_plus, self).post, *args,
+                                     **kwargs)
 
     def put(self, *args, **kwargs):
-        return self.rest_request(super(redfish_plus, self).put, *args,
-                                 **kwargs)
+
+        if MTLS_ENABLED == 'True':
+            return self.rest_request(self.put_with_mtls, *args, **kwargs)
+        else:
+            return self.rest_request(super(redfish_plus, self).put, *args,
+                                     **kwargs)
 
     def patch(self, *args, **kwargs):
-        return self.rest_request(super(redfish_plus, self).patch, *args,
-                                 **kwargs)
+
+        if MTLS_ENABLED == 'True':
+            return self.rest_request(self.patch_with_mtls, *args, **kwargs)
+        else:
+            return self.rest_request(super(redfish_plus, self).patch, *args,
+                                     **kwargs)
 
     def delete(self, *args, **kwargs):
-        return self.rest_request(super(redfish_plus, self).delete, *args,
-                                 **kwargs)
+
+        if MTLS_ENABLED == 'True':
+            return self.rest_request(self.delete_with_mtls, *args, **kwargs)
+        else:
+            return self.rest_request(super(redfish_plus, self).delete, *args,
+                                     **kwargs)
 
     def __del__(self):
         del self
+
+    def get_with_mtls(self, *args, **kwargs):
+
+        cert_dict = kwargs.pop('certificate', {"certificate_name": VALID_CERT})
+        response = requests.get(url='https://' + host + args[0],
+                                cert=CERT_DIR_PATH + '/' + cert_dict['certificate_name'],
+                                verify=False,
+                                headers={"Cache-Control": "no-cache"})
+
+        response.status = response.status_code
+        if response.status == 200:
+            response.dict = json.loads(response.text)
+
+        return response
+
+    def post_with_mtls(self, *args, **kwargs):
+
+        cert_dict = kwargs.pop('certificate', {"certificate_name": VALID_CERT})
+        body = kwargs.pop('body', {})
+        response = requests.post(url='https://' + host + args[0],
+                                 json=body,
+                                 cert=CERT_DIR_PATH + '/' + cert_dict['certificate_name'],
+                                 verify=False,
+                                 headers={"Content-Type": "application/json"})
+
+        response.status = response.status_code
+
+        return response
+
+    def patch_with_mtls(self, *args, **kwargs):
+
+        cert_dict = kwargs.pop('certificate', {"certificate_name": VALID_CERT})
+        body = kwargs.pop('body', {})
+        response = requests.patch(url='https://' + host + args[0],
+                                  json=body,
+                                  cert=CERT_DIR_PATH + '/' + cert_dict['certificate_name'],
+                                  verify=False,
+                                  headers={"Content-Type": "application/json"})
+
+        response.status = response.status_code
+
+        return response
+
+    def delete_with_mtls(self, *args, **kwargs):
+
+        cert_dict = kwargs.pop('certificate', {"certificate_name": VALID_CERT})
+        response = requests.delete(url='https://' + host + args[0],
+                                   cert=CERT_DIR_PATH + '/' + cert_dict['certificate_name'],
+                                   verify=False,
+                                   headers={"Content-Type": "application/json"})
+
+        response.status = response.status_code
+
+        return response
+
+    def put_with_mtls(self, *args, **kwargs):
+
+        cert_dict = kwargs.pop('certificate', {"certificate_name": VALID_CERT})
+        body = kwargs.pop('body', {})
+        response = requests.put(url='https://' + host + args[0],
+                                json=body,
+                                cert=CERT_DIR_PATH + '/' + cert_dict['certificate_name'],
+                                verify=False,
+                                headers={"Content-Type": "application/json"})
+
+        response.status = response.status_code
+
+        return response
+
+    def head_with_mtls(self, *args, **kwargs):
+
+        cert_dict = kwargs.pop('certificate', {"certificate_name": VALID_CERT})
+        body = kwargs.pop('body', {})
+        response = requests.head(url='https://' + host + args[0],
+                                 json=body,
+                                 cert=CERT_DIR_PATH + '/' + cert_dict['certificate_name'],
+                                 verify=False,
+                                 headers={"Content-Type": "application/json"})
+
+        response.status = response.status_code
+
+        return response

@@ -2,7 +2,7 @@
 
 Documentation  Test OpenBMC GUI "Local user management" sub-menu of "Access control".
 
-Resource        ../../lib/resource.robot
+Resource        ../../lib/gui_resource.robot
 
 Suite Setup     Launch Browser And Login GUI
 Suite Teardown  Close Browser
@@ -14,8 +14,8 @@ ${xpath_local_user_management_heading }  //h1[text()="Local user management"]
 ${xpath_select_user}                     //input[contains(@class,"custom-control-input")]
 ${xpath_account_policy}                  //button[contains(text(),'Account policy settings')]
 ${xpath_add_user}                        //button[contains(text(),'Add user')]
-${xpath_edit_user}                       //button[@aria-label="Edit user"]
-${xpath_delete_user}                     //button[@aria-label="Delete user"]
+${xpath_edit_user}                       //*[@data-test-id='localUserManagement-tableRowAction-edit-0']
+${xpath_delete_user}                     //*[@data-test-id='localUserManagement-tableRowAction-delete-1']
 ${xpath_account_status_enabled_button}   //*[@data-test-id='localUserManagement-radioButton-statusEnabled']
 ${xpath_account_status_disabled_button}  //*[@data-test-id='localUserManagement-radioButton-statusDisabled']
 ${xpath_username_input_button}           //*[@data-test-id='localUserManagement-input-username']
@@ -60,8 +60,8 @@ Verify Existence Of All Buttons In Local User Management Page
 
     Page should contain Button  ${xpath_account_policy}
     Page should contain Button  ${xpath_add_user}
-    Page Should Contain Button  ${xpath_edit_user}
-    Page Should Contain Button  ${xpath_delete_user}
+    Page Should Contain Element  ${xpath_edit_user}
+    Page Should Contain Element  ${xpath_delete_user}
 
 
 Verify Existence Of All Button And Fields In Add User
@@ -96,30 +96,38 @@ Verify Existence Of All Buttons And Fields In Account Policy Settings
 
 
 Verify User Access Privilege
-    [Documentation]  Create a new user with a priviledge and verify that user is created.
+    [Documentation]  Create a new user with a privilege and verify that user is created.
     [Tags]  Verify_User_Access_Privilege
     [Template]  Create User And Verify
 
-    # username      privilege_level
-    admin_user      Administrator
-    operator_user   Operator
-    readonly_user   ReadOnly
-    noaccess_user   NoAccess
+    # username      privilege_level  enabled
+    admin_user      Administrator    ${True}
+    operator_user   Operator         ${True}
+    readonly_user   ReadOnly         ${True}
+    noaccess_user   NoAccess         ${True}
+    disabled_user   Administrator    ${False}
+
 
 *** Keywords ***
 
 Create User And Verify
     [Documentation]  Create a user with given user name and privilege and verify that the
     ...  user is created successfully via GUI and Redfish.
-    [Teardown]  Redfish.Delete  /redfish/v1/AccountService/Accounts/${user_name}
-    [Arguments]  ${user_name}  ${user_privilege}
+    [Teardown]  Run Keywords  Redfish.Logout  AND  Redfish.Login  AND
+    ...  Redfish.Delete  /redfish/v1/AccountService/Accounts/${user_name}
+    [Arguments]  ${user_name}  ${user_privilege}  ${enabled}
 
     # Description of argument(s):
     # user_name           The name of the user to be created (e.g. "test", "robert", etc.).
     # user_privilege      Privilege of the user.
+    # enabled             If the user is enabled (e.g True if enabled, False if disabled).
 
     Click Element  ${xpath_add_user}
     Wait Until Page Contains Element  ${xpath_add_user_heading}
+
+    # Select disabled radio button if user needs to be disabled
+    Run Keyword If  ${enabled} == ${False}
+    ...  Click Element At Coordinates  ${xpath_account_status_disabled_button}  0  0
 
     # Input username, password and privilege.
     Input Text  ${xpath_username_input_button}  ${user_name}
@@ -141,6 +149,14 @@ Create User And Verify
     ${user_priv_redfish}=  Redfish_Utils.Get Attribute
     ...  /redfish/v1/AccountService/Accounts/${user_name}  RoleId
     Should Be Equal  ${user_privilege}  ${user_priv_redfish}
+
+    # Check enable/disable status for user.
+    Redfish.Logout
+    ${status}=  Run Keyword And Return Status  Redfish.Login  ${user_name}  ${test_user_password}
+    Run Keyword If  ${enabled} == ${False}
+    ...  Should Be Equal  ${status}  ${False}
+    ...  ELSE  Should Be Equal  ${status}  ${True}
+
 
 Test Setup Execution
     [Documentation]  Do test case setup tasks.

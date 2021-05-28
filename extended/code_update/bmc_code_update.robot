@@ -19,6 +19,9 @@ Suite Setup       Suite Setup Execution
 
 Test Teardown     Test Teardown Execution
 
+# Force the test to timedout to prevent test hanging.
+Test Timeout      30 minutes
+
 Force Tags        BMC_Code_Update
 
 *** Variables ***
@@ -73,6 +76,7 @@ REST BMC Code Update
     [Teardown]  REST BMC Code Update Teardown
 
     Run Keyword And Ignore Error  List Installed Images  BMC
+    Run Keyword And Ignore Error  Set ApplyTime  policy=OnReset
 
     ${image_version}=  Get Version Tar  ${IMAGE_FILE_PATH}
     ${bmc_release_info}=  Get BMC Release Info

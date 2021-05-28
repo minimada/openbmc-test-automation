@@ -66,22 +66,28 @@ boot_success = 0
 status_dir_path = os.environ.get('STATUS_DIR_PATH', "")
 if status_dir_path != "":
     status_dir_path = os.path.normpath(status_dir_path) + os.sep
+redfish_support_trans_state = int(os.environ.get('REDFISH_SUPPORT_TRANS_STATE', 0)) or \
+    int(BuiltIn().get_variable_value("${REDFISH_SUPPORT_TRANS_STATE}", default=0))
 redfish_supported = BuiltIn().get_variable_value("${REDFISH_SUPPORTED}", default=False)
 redfish_rest_supported = BuiltIn().get_variable_value("${REDFISH_REST_SUPPORTED}", default=False)
+redfish_delete_sessions = int(BuiltIn().get_variable_value("${REDFISH_DELETE_SESSIONS}", default=1))
 if redfish_supported:
     redfish = BuiltIn().get_library_instance('redfish')
     default_power_on = "Redfish Power On"
     default_power_off = "Redfish Power Off"
-    if redfish_rest_supported:
+    if not redfish_support_trans_state:
         delete_errlogs_cmd = "Delete Error Logs  ${quiet}=${1}"
+        delete_bmcdump_cmd = "Delete All BMC Dump"
         default_set_power_policy = "Set BMC Power Policy  ALWAYS_POWER_OFF"
     else:
         delete_errlogs_cmd = "Redfish Purge Event Log"
+        delete_bmcdump_cmd = "Redfish Delete All BMC Dumps"
         default_set_power_policy = "Redfish Set Power Restore Policy  AlwaysOff"
 else:
     default_power_on = "REST Power On"
     default_power_off = "REST Power Off"
     delete_errlogs_cmd = "Delete Error Logs  ${quiet}=${1}"
+    delete_bmcdump_cmd = "Delete All BMC Dump"
     default_set_power_policy = "Set BMC Power Policy  ALWAYS_POWER_OFF"
 boot_count = 0
 
@@ -269,7 +275,7 @@ def initial_plug_in_setup():
                          "status_dir_path", "base_tool_dir_path",
                          "ffdc_list_file_path", "ffdc_report_list_path",
                          "ffdc_summary_list_path", "execdir", "redfish_supported",
-                         "redfish_rest_supported"]
+                         "redfish_rest_supported", "redfish_support_trans_state"]
 
     plug_in_vars = parm_list + additional_values
 
@@ -976,6 +982,7 @@ def test_loop_body():
 
         # We need to purge error logs between boots or they build up.
         grk.run_key(delete_errlogs_cmd, ignore=1)
+        grk.run_key(delete_bmcdump_cmd, ignore=1)
 
     boot_results.print_report()
     gp.qprint_timen("Finished boot " + str(boot_count) + ".")
@@ -990,7 +997,10 @@ def test_loop_body():
         BuiltIn().fail(message)
 
     # This should help prevent ConnectionErrors.
-    grk.run_key_u("Close All Connections")
+    # Purge all redfish and REST connection sessions.
+    if redfish_delete_sessions:
+        grk.run_key_u("Close All Connections", ignore=1)
+        grk.run_key_u("Delete All Redfish Sessions", ignore=1)
 
     return True
 
@@ -1160,6 +1170,7 @@ def obmc_boot_test_py(loc_boot_stack=None,
 
         # Delete errlogs prior to doing any boot tests.
         grk.run_key(delete_errlogs_cmd, ignore=1)
+        grk.run_key(delete_bmcdump_cmd, ignore=1)
 
     # Process caller's boot_stack.
     while (len(boot_stack) > 0):

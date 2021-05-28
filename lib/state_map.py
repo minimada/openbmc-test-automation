@@ -22,6 +22,9 @@ import variables as var
 BuiltIn().import_resource("state_manager.robot")
 BuiltIn().import_resource("rest_client.robot")
 
+platform_arch_type = os.environ.get('PLATFORM_ARCH_TYPE', '') or \
+    BuiltIn().get_variable_value("${PLATFORM_ARCH_TYPE}", default="power")
+
 # We will build eventually the mapping for warm, cold reset as well.
 VALID_STATES = {
     'reboot':
@@ -94,6 +97,74 @@ VALID_BOOT_STATES = {
         ),
     },
 }
+REDFISH_VALID_BOOT_STATES = {
+    'Off':  # Valid states when Host is Off.
+    {
+        # (BMC , Chassis , Host , BootProgress)
+        (
+            "Enabled",
+            "Off",
+            "Disabled",
+            "None",
+        ),
+    },
+    'Reboot':  # Valid states when BMC reset to standby.
+    {
+        # (BMC , Chassis , Host , BootProgress)
+        (
+            "Enabled",
+            "Off",
+            "Disabled",
+            "None",
+        ),
+    },
+    'Running':  # Valid states when Host is powering on.
+    {
+        # (BMC , Chassis , Host , BootProgress)
+        (
+            "Enabled",
+            "On",
+            "Enabled",
+            "OSRunning",
+        ),
+    },
+    'Booted':  # Valid state when Host is booted.
+    {
+        # (BMC , Chassis , Host , BootProgress)
+        (
+            "Enabled",
+            "On",
+            "Enabled",
+            "OSRunning",
+        ),
+    },
+    'ResetReload':  # Valid state BMC reset reload when host is booted.
+    {
+        # (BMC , Chassis , Host , BootProgress)
+        (
+            "Enabled",
+            "On",
+            "Enabled",
+            "OSRunning",
+        ),
+    },
+}
+
+if platform_arch_type == "x86":
+    VALID_BOOT_STATES_X86 = {}
+    for state_name, state_set in VALID_BOOT_STATES.items():
+        VALID_BOOT_STATES_X86[state_name] = set()
+        for state_tuple in state_set:
+            state_tuple_new = tuple(
+                x
+                for x in state_tuple
+                if not (
+                    x.startswith("xyz.openbmc_project.State.Boot.Progress")
+                    or x.startswith("xyz.openbmc_project.State.OperatingSystem")
+                )
+            )
+            VALID_BOOT_STATES_X86[state_name].add(state_tuple_new)
+    VALID_BOOT_STATES = VALID_BOOT_STATES_X86
 
 
 class state_map():
@@ -110,15 +181,20 @@ class state_map():
         chassis_state = \
             state[var.SYSTEM_STATE_URI + 'chassis0']['CurrentPowerState']
         host_state = state[var.SYSTEM_STATE_URI + 'host0']['CurrentHostState']
-        boot_state = state[var.SYSTEM_STATE_URI + 'host0']['BootProgress']
-        os_state = \
-            state[var.SYSTEM_STATE_URI + 'host0']['OperatingSystemState']
+        if platform_arch_type == "x86":
+            return (str(bmc_state),
+                    str(chassis_state),
+                    str(host_state))
+        else:
+            boot_state = state[var.SYSTEM_STATE_URI + 'host0']['BootProgress']
+            os_state = \
+                state[var.SYSTEM_STATE_URI + 'host0']['OperatingSystemState']
 
-        return (str(bmc_state),
-                str(chassis_state),
-                str(host_state),
-                str(boot_state),
-                str(os_state))
+            return (str(bmc_state),
+                    str(chassis_state),
+                    str(host_state),
+                    str(boot_state),
+                    str(os_state))
 
     def valid_boot_state(self, boot_type, state_set):
         r"""
@@ -132,6 +208,21 @@ class state_map():
         """
 
         if state_set in set(VALID_BOOT_STATES[boot_type]):
+            return True
+        else:
+            return False
+
+    def redfish_valid_boot_state(self, boot_type, state_dict):
+        r"""
+        Validate a given set of states is valid.
+
+        Description of argument(s):
+        boot_type                   Boot type (e.g. off/running/host booted
+                                    etc.)
+        state_dict                  State dictionary.
+        """
+
+        if set(state_dict.values()) in set(REDFISH_VALID_BOOT_STATES[boot_type]):
             return True
         else:
             return False

@@ -35,6 +35,27 @@ Verify User Initiated BMC Dump When Host Booted
     List Should Contain Value  ${dump_entries}  ${dump_id}
 
 
+Verify User Initiated BMC Dump Size
+    [Documentation]  Verify user initiated BMC dump size is under 200 KB.
+    [Tags]  Verify_User_Initiated_BMC_Dump_Size
+
+    ${dump_id}=  Create User Initiated BMC Dump
+    ${resp}=  Redfish.Get Properties  /redfish/v1/Managers/bmc/LogServices/Dump/Entries/${dump_id}
+
+    # Example of response from above Redfish GET request.
+    # "@odata.type": "#LogEntry.v1_7_0.LogEntry",
+    # "AdditionalDataSizeBytes": 31644,
+    # "AdditionalDataURI": "/redfish/v1/Managers/bmc/LogServices/Dump/attachment/9",
+    # "Created": "2020-10-23T06:32:53+00:00",
+    # "DiagnosticDataType": "Manager",
+    # "EntryType": "Event",
+    # "Id": "9",
+    # "Name": "BMC Dump Entry"
+
+    # Max size for dump is 200 KB = 200x1024 Byte.
+    Should Be True  0 < ${resp["AdditionalDataSizeBytes"]} < 204800
+
+
 Verify Dump Persistency On Dump Service Restart
     [Documentation]  Create user dump, restart dump manager service and verify dump
     ...  persistency.
@@ -90,6 +111,64 @@ Delete All User Initiated BMC Dumps And Verify
     Should Be Empty  ${dump_entries}
 
 
+Create Two User Initiated BMC Dumps
+    [Documentation]  Create two user initiated BMC dumps.
+    [Tags]  Create_Two_User_Initiated_BMC_Dumps
+
+    ${dump_id1}=  Create User Initiated BMC Dump
+    ${dump_id2}=  Create User Initiated BMC Dump
+
+    ${dump_entries}=  Get BMC Dump Entries
+    Length Should Be  ${dump_entries}  2
+    Should Contain  ${dump_entries}  ${dump_id1}
+    Should Contain  ${dump_entries}  ${dump_id2}
+
+
+Create Two User Initiated BMC Dumps And Delete One
+    [Documentation]  Create two dumps and delete the first.
+    [Tags]  Create_Two_User_Initiated_BMC_Dumps_And_Delete_One
+
+    ${dump_id1}=  Create User Initiated BMC Dump
+    ${dump_id2}=  Create User Initiated BMC Dump
+
+    Redfish Delete BMC Dump  ${dump_id1}
+
+    ${dump_entries}=  Get BMC Dump Entries
+    Length Should Be  ${dump_entries}  1
+    List Should Contain Value  ${dump_entries}  ${dump_id2}
+
+
+Create And Delete User Initiated BMC Dump Multiple Times
+    [Documentation]  Create and delete user initiated BMC dump multiple times.
+    [Tags]  Create_And_Delete_User_Initiated_BMC_Dump_Multiple_Times
+
+    FOR  ${INDEX}  IN  1  10
+      ${dump_id}=  Create User Initiated BMC Dump
+      Redfish Delete BMC Dump  ${dump_id}
+    END
+
+
+Verify Maximum BMC Dump Creation
+    [Documentation]  Create maximum BMC dump and verify error when dump runs out of space.
+    [Tags]  Verify_Maximum_BMC_Dump_Creation
+    [Teardown]  Redfish Delete All BMC Dumps
+
+    # Maximum allowed space for dump is 1024 KB. BMC typically hold 8-14 dumps
+    # before running out of this dump space. So trying to create dumps in 20
+    # iterations to run out of space.
+
+    FOR  ${n}  IN RANGE  0  20
+      Create User Initiated BMC Dump
+      ${dump_space}=  Get Disk Usage For Dumps
+      Exit For Loop If  ${dump_space} >= 1024
+    END
+
+    # Check error while creating dump when dump size is full.
+    ${payload}=  Create Dictionary  DiagnosticDataType=Manager
+    Redfish.Post  /redfish/v1/Managers/bmc/LogServices/Dump/Actions/LogService.CollectDiagnosticData
+    ...  body=${payload}  valid_status_codes=[${HTTP_INTERNAL_SERVER_ERROR}]
+
+
 *** Keywords ***
 
 Create User Initiated BMC Dump
@@ -119,14 +198,14 @@ Create User Initiated BMC Dump
     #      "Connection: Keep-Alive",
     #      "Accept: */*",
     #      "Content-Length: 33",
-    #      "Location: /redfish/v1/Managers/bmc/LogServices/Dump/Entries/2"]
+    #      "Location: /redfish/v1/Managers/bmc/LogServices/Dump/Entries/2/"]
     #    ],
     #    "HttpOperation": "POST",
     #    "JsonBody": "{\"DiagnosticDataType\":\"Manager\"}",
     #     "TargetUri": "/redfish/v1/Managers/bmc/LogServices/Dump/Actions/LogService.CollectDiagnosticData"
     # }
 
-    [Return]  ${task_dict["Payload"]["HttpHeaders"][-1].split("/")[-1]}
+    [Return]  ${task_dict["Payload"]["HttpHeaders"][-1].split("/")[-2]}
 
 
 Get BMC Dump Entries
@@ -141,6 +220,21 @@ Get BMC Dump Entries
     END
 
     [Return]  ${dump_ids}
+
+
+Get Disk Usage For Dumps
+    [Documentation]  Return disk usage in kilobyte for BMC dumps.
+
+    ${usage_output}  ${stderr}  ${rc}=  BMC Execute Command  du -s /var/lib/phosphor-debug-collector/dumps
+
+    # Example of output from above BMC cli command.
+    # $ du -s /var/lib/phosphor-debug-collector/dumps
+    # 516    /var/lib/phosphor-debug-collector/dumps
+
+    ${usage_output}=  Fetch From Left  ${usage_output}  /
+    ${usage_output}=  Convert To Integer  ${usage_output}
+
+    [return]  ${usage_output}
 
 
 Is Task Completed

@@ -26,6 +26,9 @@ Suite Teardown           Redfish.Logout
 Test Setup               Printn
 Test Teardown            FFDC On Test Case Fail
 
+# Force the test to timedout to prevent test hanging.
+Test Timeout             30 minutes
+
 Force Tags               BMC_Code_Update
 
 *** Variables ***
@@ -46,13 +49,25 @@ Redfish BMC Code Update
     ${functional_version}=  Set Variable  ${bmc_release_info['version_id']}
     Rprint Vars  functional_version
 
+    ${post_code_update_actions}=  Get Post Boot Action
+    ${state}=  Get Pre Reboot State
+    Rprint Vars  state
+
     # Check if the existing firmware is functional.
     Pass Execution If  '${functional_version}' == '${image_version}'
     ...  The existing ${image_version} firmware is already functional.
 
-    # TODO: Replace with redfish ActiveSoftwareImage API.
-    #Run Keyword If  not ${FORCE_UPDATE}
-    #...  Activate Existing Firmware  ${image_version}
+    ${sw_inv}=  Get Functional Firmware  BMC image
+    ${nonfunctional_sw_inv}=  Get Non Functional Firmware  ${sw_inv}  False
+
+    # Redfish active software image API.
+    Run Keyword If  not ${FORCE_UPDATE}
+    ...  Run Keyword If  ${num_records} > 0
+    ...    Run Keyword If  '${nonfunctional_sw_inv['version']}' == '${image_version}'
+    ...      Run Keywords  Switch Backup Firmware Image To Functional  AND
+    ...      Wait For Reboot  start_boot_seconds=${state['epoch_seconds']}  AND
+    ...      Redfish Verify BMC Version  ${IMAGE_FILE_PATH}  AND
+    ...      Pass Execution  The firmware ${image_version} is backup image.
 
     # Firmware inventory record of the given image version.
     ${image_info}=  Get Software Inventory State By Version  ${image_version}
@@ -65,6 +80,9 @@ Redfish BMC Code Update
     # done to give a chance.
 
     Run Keyword If  '${image_info_len}' != 0
+    ...  Run Keywords  Print Timen
+    ...  The ${image_version} version is installed but not functional, try delete and continue firmware update.
+    ...    AND
     ...  Run Keyword And Ignore Error
     ...    Delete Software Object  /xyz/openbmc_project/software/${image_info['image_id']}
 
@@ -109,53 +127,17 @@ Redfish Firmware Update In Loop
       Print Timen  **************************************
       Redfish Update Firmware
       ${sw_inv}=  Get Functional Firmware  BMC update
-      ${nonfunctional_sw_inv}=  Get Non Fucntional Firmware  ${sw_inv}  False
+      ${nonfunctional_sw_inv}=  Get Non Functional Firmware  ${sw_inv}  False
       Run Keyword If  ${nonfunctional_sw_inv['functional']} == False
       ...  Set BMC Image Priority To Least  ${nonfunctional_sw_inv['version']}  ${nonfunctional_sw_inv}
       Redfish.Login
       ${sw_inv}=  Get Functional Firmware  BMC update
-      ${nonfunctional_sw_inv}=  Get Non Fucntional Firmware  ${sw_inv}  False
+      ${nonfunctional_sw_inv}=  Get Non Functional Firmware  ${sw_inv}  False
       Delete BMC Image
     END
 
     ${after_image_state}=  Get BMC Functional Firmware
     Valid Value  before_image_state["version"]  ['${after_image_state["version"]}']
-
-
-Get BMC Functional Firmware
-    [Documentation]  Get BMC functional firmware details.
-
-    ${sw_inv}=  Get Functional Firmware  BMC update
-    ${sw_inv}=  Get Non Fucntional Firmware  ${sw_inv}  True
-
-    [Return]  ${sw_inv}
-
-
-Get Functional Firmware
-    [Documentation]  Get all the BMC firmware details.
-    [Arguments]  ${image_type}
-
-    # Description of argument(s):
-    # image_type    Image value can be either BMC update or Host update.
-
-    ${software_inventory}=  Get Software Inventory State
-    ${bmc_inv}=  Get BMC Firmware  ${image_type}  ${software_inventory}
-
-    [Return]  ${bmc_inv}
-
-
-Get Non Fucntional Firmware
-    [Documentation]  Get BMC non functional fimware details.
-    [Arguments]  ${sw_inv}  ${functional_sate}
-
-    # Description of argument(s):
-    # sw_inv           This dictionay contains all the BMC fimware details.
-    # functional_sate  Functional state can be either True or False.
-
-    ${resp}=  Filter Struct  ${sw_inv}  [('functional', ${functional_sate})]
-    ${list_inv_dict}=  Get Dictionary Values  ${resp}
-
-    [Return]  ${list_inv_dict}[0]
 
 
 Delete BMC Image
@@ -166,7 +148,7 @@ Delete BMC Image
 
 
 Activate Existing Firmware
-    [Documentation]  Set fimware image to lower priority.
+    [Documentation]  Set firmware image to lower priority.
     [Arguments]  ${image_version}
 
     # Description of argument(s):
@@ -198,7 +180,7 @@ Get Image Priority
     [Arguments]  ${image_version}
 
     # Description of argument(s):
-    # image_version       The Fimware image version (e.g. 2.8.0-dev-1107-g512028d95).
+    # image_version       The Firmware image version (e.g. 2.8.0-dev-1107-g512028d95).
 
     ${software_info}=  Read Properties
     ...  ${SOFTWARE_VERSION_URI}/enumerate  quiet=1
@@ -217,7 +199,7 @@ Set BMC Image Priority To Least
     [Arguments]  ${image_version}  ${software_inventory}
 
     # Description of argument(s):
-    # image_version       The Fimware image version (e.g. 2.8.0-dev-1107-g512028d95).
+    # image_version       The Firmware image version (e.g. 2.8.0-dev-1107-g512028d95).
     # software_inventory  Software inventory details.
 
     ${least_priority}=  Get Least Value Priority Image  ${VERSION_PURPOSE_BMC}

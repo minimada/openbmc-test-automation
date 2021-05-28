@@ -2,7 +2,7 @@
 
 Documentation  Test OpenBMC GUI "Serial over LAN Console" sub-menu of "Control".
 
-Resource        ../../lib/resource.robot
+Resource        ../../lib/gui_resource.robot
 
 Suite Setup     Launch Browser And Login GUI
 Suite Teardown  Close Browser
@@ -11,7 +11,6 @@ Test Setup      Test Setup Execution
 
 *** Variables ***
 
-${xpath_sol_console_heading}     //h1[text()="Serial over LAN (SOL) console"]
 ${xpath_open_in_new_tab_button}  //button[contains(text(),'Open in new tab')]
 
 
@@ -28,7 +27,7 @@ Verify Existence Of All Sections In SOL Console Page
     [Documentation]  Verify existence of all sections in SOL console page.
     [Tags]  Verify_Existence_Of_All_Sections_In_SOL_Console_Page
 
-    Page Should Contain  SOL console redirects server's serial port output to this window
+    Page Should Contain  SOL console redirects the server's serial port output to this window
 
 
 Verify Existence Of All Buttons In SOL Console Page

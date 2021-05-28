@@ -5,6 +5,7 @@ Library         ../../lib/pel_utils.py
 Variables       ../../data/pel_variables.py
 Resource        ../../lib/list_utils.robot
 Resource        ../../lib/logging_utils.robot
+Resource        ../../lib/connection_client.robot
 Resource        ../../lib/openbmc_ffdc.robot
 
 Test Setup      Redfish.Login
@@ -12,26 +13,6 @@ Test Teardown   Run Keywords  Redfish.Logout  AND  FFDC On Test Case Fail
 
 
 *** Variables ***
-
-${CMD_INTERNAL_FAILURE}  busctl call xyz.openbmc_project.Logging /xyz/openbmc_project/logging
-...  xyz.openbmc_project.Logging.Create Create ssa{ss} xyz.openbmc_project.Common.Error.InternalFailure
-...  xyz.openbmc_project.Logging.Entry.Level.Error 0
-
-${CMD_FRU_CALLOUT}  busctl call xyz.openbmc_project.Logging /xyz/openbmc_project/logging
-...  xyz.openbmc_project.Logging.Create Create ssa{ss} xyz.openbmc_project.Common.Error.Timeout
-...  xyz.openbmc_project.Logging.Entry.Level.Error 2 "TIMEOUT_IN_MSEC" "5"
-...  "CALLOUT_INVENTORY_PATH" "/xyz/openbmc_project/inventory/system/chassis/motherboard"
-
-${CMD_PROCEDURAL_SYMBOLIC_FRU_CALLOUT}  busctl call xyz.openbmc_project.Logging /xyz/openbmc_project/logging
-...  xyz.openbmc_project.Logging.Create Create ssa{ss} org.open_power.Logging.Error.TestError1
-...  xyz.openbmc_project.Logging.Entry.Level.Error 0
-
-${CMD_INFORMATIONAL_ERROR}  busctl call xyz.openbmc_project.Logging /xyz/openbmc_project/logging
-...  xyz.openbmc_project.Logging.Create Create ssa{ss} xyz.openbmc_project.Common.Error.TestError2
-...  xyz.openbmc_project.Logging.Entry.Level.Informational 0
-
-${CMD_INVENTORY_PREFIX}  busctl get-property xyz.openbmc_project.Inventory.Manager
-...  /xyz/openbmc_project/inventory/system/chassis/motherboard
 
 @{mandatory_pel_fileds}   Private Header  User Header  Primary SRC  Extended User Header  Failing MTMS
 
@@ -358,7 +339,7 @@ Verify Procedure And Symbolic FRU Callout
     Valid Value  pel_callout_section['Callouts'][0]['FRU Type']  ['Maintenance Procedure Required']
     Should Contain  ${pel_callout_section['Callouts'][0]['Priority']}  Mandatory
     # Verify if "Procedure Number" field of PEL has an alphanumeric value.
-    Should Match Regexp  ${pel_callout_section['Callouts'][0]['Procedure Number']}  [a-zA-Z0-9]
+    Should Match Regexp  ${pel_callout_section['Callouts'][0]['Procedure']}  [a-zA-Z0-9]
 
     # Verify procedural callout info.
 
@@ -456,35 +437,315 @@ Verify Informational Error Log
     Should Contain  ${pel_records['${id}']['Sev']}  Informational
 
 
-*** Keywords ***
+Verify Predictable Error Log
+    [Documentation]  Create a predictive error and verify.
+    [Tags]  Verify_Predictable_Error_Log
 
-Create Test PEL Log
-    [Documentation]  Generate test PEL log.
-    [Arguments]  ${pel_type}=Internal Failure
+    # Create a predictable error log.
+    BMC Execute Command  ${CMD_PREDICTIVE_ERROR}
+    ${pel_records}=  Peltool  -l
 
-    # Description of argument(s):
-    # pel_type      The PEL type (e.g. Internal Failure, FRU Callout, Procedural Callout).
-
-    # Test PEL log entry example:
+    # An example of predictive error log data:
     # {
-    #    "0x5000002D": {
+    #    "0x5000069E": {
     #            "SRC": "BD8D1002",
     #            "Message": "An application had an internal failure",
-    #            "PLID": "0x5000002D",
+    #            "PLID": "0x5000069E",
     #            "CreatorID": "BMC",
     #            "Subsystem": "BMC Firmware",
-    #            "Commit Time": "02/25/2020  04:47:09",
+    #            "Commit Time": "10/14/2020 11:40:07",
+    #            "Sev": "Predictive Error",
+    #            "CompID": "0x1000"
+    #    }
+    # }
+
+    ${pel_ids}=  Get PEL Log Via BMC CLI
+    ${id}=  Get From List  ${pel_ids}  -1
+    Should Contain  ${pel_records['${id}']['Sev']}  Predictive
+
+
+Verify Unrecoverable Error Log
+    [Documentation]  Create an unrecoverable error and verify.
+    [Tags]  Verify_Unrecoverable_Error_Log
+
+    # Create an internal failure error log.
+    BMC Execute Command  ${CMD_UNRECOVERABLE_ERROR}
+    ${pel_records}=  Peltool  -l
+
+    # An example of unrecoverable error log data:
+    # {
+    #    "0x50000CC5": {
+    #            "SRC": "BD8D1002",
+    #            "Message": "An application had an internal failure",
+    #            "PLID": "0x50000CC5",
+    #            "CreatorID": "BMC",
+    #            "Subsystem": "BMC Firmware",
+    #            "Commit Time": "04/01/2020 16:44:55",
     #            "Sev": "Unrecoverable Error",
     #            "CompID": "0x1000"
     #    }
     # }
 
-    Run Keyword If  '${pel_type}' == 'Internal Failure'
-    ...   BMC Execute Command  ${CMD_INTERNAL_FAILURE}
-    ...  ELSE IF  '${pel_type}' == 'FRU Callout'
-    ...   BMC Execute Command  ${CMD_FRU_CALLOUT}
-    ...  ELSE IF  '${pel_type}' == 'Procedure And Symbolic FRU Callout'
-    ...   BMC Execute Command  ${CMD_PROCEDURAL_SYMBOLIC_FRU_CALLOUT}
+    ${pel_ids}=  Get PEL Log Via BMC CLI
+    ${id}=  Get From List  ${pel_ids}  -1
+    Should Contain  ${pel_records['${id}']['Sev']}  Unrecoverable
+
+
+Verify Error Logging Rotation Policy
+    [Documentation]  Verify error logging rotation policy.
+    [Tags]  Verify_Error_Logging_Rotation_Policy
+    [Template]  Error Logging Rotation Policy
+
+    # Error logs to be created                                % of total logging space when error
+    #                                                         log exceeds max limit.
+    Informational BMC 3000                                                       15
+    Predictive BMC 3000                                                          30
+    Unrecoverable BMC 3000                                                       30
+    Informational BMC 1500, Predictive BMC 1500                                  45
+    Informational BMC 1500, Unrecoverable BMC 1500                               45
+    Unrecoverable BMC 1500, Predictive BMC 1500                                  30
+
+
+Verify Error Logging Rotation Policy With All Types Of Errors
+    [Documentation]  Verify error logging rotation policy with all types of errors.
+    [Tags]  Verify_Error_Logging_Rotation_Policy_With_All_Types_Errors
+    [Template]  Error Logging Rotation Policy
+
+    # Error logs to be created                                           % of total logging space when error
+    #                                                                    log exceeds max limit.
+    Unrecoverable BMC 1000, Informational BMC 1000, Predictive BMC 1000          45
+
+
+Verify Error Logging Rotation Policy With HOST Error Logs
+    [Documentation]  Verify error logging rotation policy for non bmc error logs.
+    [Tags]  Verify_Error_Logging_Rotation_Policy_With_HOST_Error_Logs
+    [Setup]  Run Keywords  Open Connection for SCP  AND  scp.Put File  ${UNRECOVERABLE_FILE_PATH}
+    ...  /tmp/FILE_HOST_UNRECOVERABLE  AND  scp.Put File  ${INFORMATIONAL_FILE_PATH}
+    ...  /tmp/FILE_HOST_INFORMATIONAL
+    [Template]  Error Logging Rotation Policy
+
+    # Error logs to be created                                % of total logging space when error
+    #                                                         log exceeds max limit.
+    Informational HOST 3000                                                   15
+    Unrecoverable HOST 3000                                                   30
+    Informational HOST 1500, Informational BMC 1500                           30
+    Informational HOST 1500, Unrecoverable BMC 1500                           45
+    Unrecoverable HOST 1500, Informational BMC 1500                           45
+    Unrecoverable HOST 1500, Predictive BMC 1500                              60
+
+
+Verify Error Logging Rotation Policy With Unrecoverable HOST And BMC Error Logs
+    [Documentation]  Verify error logging rotation policy with unrecoverable HOST and BMC error logs.
+    [Tags]  Verify_Error_Logging_Rotation_Policy_With_Unrecoverable_HOST_And_BMC_Error_Logs
+    [Setup]  Run Keywords  Open Connection for SCP  AND  scp.Put File  ${UNRECOVERABLE_FILE_PATH}
+    ...  /tmp/FILE_NBMC_UNRECOVERABLE  AND  Redfish.Login
+    [Template]  Error Logging Rotation Policy
+
+    # Error logs to be created                                % of total logging space when error
+    #                                                         log exceeds max limit.
+    Unrecoverable HOST 1500, Unrecoverable BMC 1500                           60
+
+
+Verify Old Logs Are Deleted When Count Crosses Max
+    [Documentation]  Verify that when the count crosses max, older logs are deleted.
+    [Tags]  Verify_Old_Logs_Are_Deleted_When_Count_Crosses_Max
+
+    Redfish Purge Event Log
+    # Create 3000 error logs.
+    FOR  ${count}  IN RANGE  ${3000}
+        BMC Execute Command  ${CMD_PREDICTIVE_ERROR}
+    END
+
+    # Retrieve the IDs of the logs.
+    ${pel_ids}=  Get PEL Log Via BMC CLI
+    ${1st_id}=  Get From List  ${pel_ids}  0
+    ${3000th_id}=  Get From List  ${pel_ids}  2999
+
+    # Now create 3001st log to cross threshold limit and trigger error logs rotation.
+    BMC Execute Command  ${CMD_PREDICTIVE_ERROR}
+
+    # Wait few seconds for error logs rotation to complete.
+    Sleep  10s
+
+    # Now verify that first log is no more available but the 3000th is available.
+    ${status}  ${output}=  Run Keyword And Ignore Error  Peltool  -i ${1st_id}
+    Should Be True  '${status}' == 'FAIL'
+    Should Contain  ${output}  PEL not found
+
+    ${status}  ${output}=  Run Keyword And Ignore Error  Peltool  -i ${3000th_id}
+    Should Be True  '${status}' == 'PASS'
+    Should Not Contain  ${output}  PEL not found
+
+
+Verify Reverse Order Of PEL Logs
+    [Documentation]  Verify PEL command to output PEL logs in reverse order.
+    [Tags]  Verify_Reverse_PEL_Logs
+
+    Redfish Purge Event Log
+
+    # Below commands create unrecoverable error log at first and then the predictable error.
+    BMC Execute Command  ${CMD_UNRECOVERABLE_ERROR}
+    BMC Execute Command  ${CMD_PREDICTIVE_ERROR}
+
+    # Using peltool -lr, recent PELs appear first. Hence the ID of first PEL is greater than the next.
+    ${pel_records}=  peltool  -lr
+
+    # It is found that, variables like dictionary always keep items in sorted order that makes
+    # this verification not possible, hence json is used to keep the items original order.
+    ${pel_records}=  Convert To String  ${pel_records}
+    ${json_string}=  Replace String  ${pel_records}  '  "
+    ${json_object}=  Evaluate  json.loads('''${json_string}''')  json
+
+    ${list}=  Convert To List  ${json_object}
+
+    ${id1}=  Get From List   ${list}  0
+    ${id1}=  Convert To Integer  ${id1}
+    ${id2}=  Get From List   ${list}  1
+    ${id2}=  Convert To Integer  ${id2}
+
+    Should Be True  ${id1} > ${id2}
+
+
+Verify Total PEL Count
+    [Documentation]  Verify total PEL count returned by peltool command.
+    [Tags]  Verify_Total_PEL_Count
+
+    # Initially remove all logs.
+    Redfish Purge Event Log
+
+    # Generate a random number between 1-20.
+    ${random}=  Evaluate  random.randint(1, 20)  modules=random
+
+    # Generate predictive error log multiple times.
+    FOR  ${count}  IN RANGE  0  ${random}
+      BMC Execute Command  ${CMD_PREDICTIVE_ERROR}
+    END
+
+    # Check PEL log count via peltool command and compare it with actual generated log count.
+    ${pel_records}=  peltool  -n
+
+    Should Be Equal  ${pel_records['Number of PELs found']}   ${random}
+
+
+Verify Listing Information Error
+    [Documentation]  Verify that information error logs can only be listed using -lfh option of peltool.
+    [Tags]  Verify_Listing_Information_Error
+
+    # Initially remove all logs.
+    Redfish Purge Event Log
+    BMC Execute Command  ${CMD_INFORMATIONAL_ERROR}
+
+    # Generate informational logs and verify that it would not get listed by peltool's list command.
+    ${pel_records}=  peltool  -l
+    ${ids}=  Get Dictionary Keys  ${pel_records}
+    Should Be Empty  ${ids}
+
+    # Verify that information logs get listed using peltool's list command with -lfh option.
+    ${pel_records}=  peltool  -lfh
+    ${ids}=  Get Dictionary Keys  ${pel_records}
+    Should Not Be Empty  ${ids}
+    ${id}=  Get From List  ${ids}  0
+    Should Contain  ${pel_records['${id}']['Sev']}  Informational
+
+
+Verify PEL Delete
+    [Documentation]  Verify that peltool command can delete PEL log based on id.
+    [Tags]  Verify_PEL_Delete
+
+    BMC Execute Command  ${CMD_PREDICTIVE_ERROR}
+    ${pel_ids}=  Get PEL Log Via BMC CLI
+    ${id}=  Get From List  ${pel_ids}  -1
+    Peltool  -d ${id}  False
+    Run Keyword and Expect Error  *PEL not found*  Peltool  -i ${id}
+
+
+*** Keywords ***
+
+Error Logging Rotation Policy
+    [Documentation]  Verify that when maximum log limit is reached, given error logging type
+    ...  are deleted when reached their max allocated space.
+    [Arguments]  ${error_log_type}  ${max_allocated_space_percentage}
+
+    # Description of argument(s):
+    # error_log                           Error logs to be created (E.g. Informational BMC 3000
+    #                                     stands for BMC created 3000 informational error logs).
+    # max_allocated_space_percentage      The maximum percentage of disk usage for given error
+    #                                     log type when maximum count/log size is reached.
+    #                                     The maximum error log count is 3000.
+
+    # Initially remove all logs. Purging is done to ensure that, only specific logs are present
+    # in BMC during the test.
+    Redfish Purge Event Log
+
+    @{lists}=  Split String  ${error_log_type}  ,${SPACE}
+
+    ${length}=  Get Length  ${lists}
+
+    FOR  ${list}  IN RANGE  ${length}
+        @{words}=  Split String  ${lists}[${list}]  ${SPACE}
+        Create Error Log  ${words}[0]  ${words}[1]  ${words}[2]
+    END
+
+    # Create an additional error log to exceed max error logs limit.
+    BMC Execute Command  ${CMD_UNRECOVERABLE_ERROR}
+
+    # Delay for BMC to perform delete older error logs when log limit exceeds.
+    Sleep  10s
+
+    # Verify disk usage is around max allocated space. Maximum usage is around 3MB not exactly 3MB
+    # (for informational log) and around 6 MB for unrecoverable / predictive error log. So, usage
+    # percentage is NOT exactly 15% and 30%. So, an error/accuracy factor 0.5 percent is added.
+
+    ${disk_usage_percentage}=  Get Disk Usage For Error Logs
+    ${percent_diff}=  Evaluate  ${disk_usage_percentage} - ${max_allocated_space_percentage}
+    ${percent_diff}=   Evaluate  abs(${percent_diff})
+
+    ${trimmed_as_expected}=  Run Keyword If  ${disk_usage_percentage} > ${max_allocated_space_percentage}
+    ...  Evaluate  ${percent_diff} <= 0.5
+    ...  ELSE
+    ...  Set Variable  True
+
+    # Check PEL log count via peltool command and compare it with actual generated log count.
+    ${pel_records}=  peltool  -n
+    ${no_pel_records}=  Set Variable  ${pel_records["Number of PELs found"]}
+    # Number of logs can be 80% of the total logs created after trimming.
+    ${expected_max_record}=   Evaluate  3000 * 0.8
+
+    Run Keyword If  ${trimmed_as_expected} == False   Should Be True  ${no_pel_records} <= ${expected_max_record}
+
+
+Create Error Log
+    [Arguments]  ${error_severity}   ${error_creator}   ${count}
+
+    # Description of argument(s):
+    # error_severity             Severity of the error (E.g. Informational, Unrecoberable or Predictive)
+    # error_creator              Name of error log's creator(E.g BMC, Host Boot)
+    # count                      Number of error logs to be generated.
+
+    FOR  ${i}  IN RANGE  0  ${count}
+        ${cmd}=  Set Variable If
+        ...  '${error_severity}' == 'Informational' and '${error_creator}' == 'BMC'  ${CMD_INFORMATIONAL_ERROR}
+        ...  '${error_severity}' == 'Predictive' and '${error_creator}' == 'BMC'  ${CMD_PREDICTIVE_ERROR}
+        ...  '${error_severity}' == 'Unrecoverable' and '${error_creator}' == 'BMC'  ${CMD_UNRECOVERABLE_ERROR}
+        ...  '${error_severity}' == 'Unrecoverable' and '${error_creator}' == 'HOST'  ${CMD_UNRECOVERABLE_HOST_ERROR}
+        BMC Execute Command  ${cmd}
+    END
+
+
+Get Disk Usage For Error Logs
+    [Documentation]  Get disk usage percentage for error logs.
+
+    ${usage_output}  ${stderr}  ${rc}=  BMC Execute Command  du /var/lib/phosphor-logging/errors
+
+    ${usage_output}=  Fetch From Left  ${usage_output}  \/
+
+    # Covert disk usage unit from KB to MB.
+    ${usage_output}=  Evaluate  ${usage_output} / 1024
+
+    # Logging disk capacity limit is set to 20MB. So calculating the log usage percentage.
+    ${usage_percent}=  Evaluate  ${usage_output} / 20 * 100
+
+    [return]  ${usage_percent}
 
 
 Get PEL Log IDs

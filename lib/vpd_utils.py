@@ -44,5 +44,11 @@ def vpdtool(option_string, **bsu_options):
 
     bsu_options = fa.args_to_objects(bsu_options)
     out_buf, stderr, rc = bsu.bmc_execute_command('vpd-tool ' + option_string, **bsu_options)
-    out_buf = json.loads(out_buf)
-    return out_buf
+
+    # Only return output if its not a VPD write command.
+    if '-w' not in option_string:
+        out_buf = json.loads(out_buf)
+        if '-r' in option_string:
+            return out_buf
+        else:
+            return out_buf[0]

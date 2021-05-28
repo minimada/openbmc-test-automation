@@ -78,39 +78,11 @@ SYSTEM_STATE_URI = "/xyz/openbmc_project/state/"
 
 OBMC_STATES_VERSION = int(os.environ.get('OBMC_STATES_VERSION', 1))
 
-# When a user calls get_state w/o specifying req_states, default_req_states
-# is used as its value.
-default_req_states = ['rest',
-                      'chassis',
-                      'bmc',
-                      'boot_progress',
-                      'operating_system',
-                      'host',
-                      'os_ping',
-                      'os_login',
-                      'os_run_cmd']
+redfish_support_trans_state = int(os.environ.get('REDFISH_SUPPORT_TRANS_STATE', 0)) or \
+    int(BuiltIn().get_variable_value("${REDFISH_SUPPORT_TRANS_STATE}", default=0))
 
-# valid_req_states is a list of sub states supported by the get_state function.
-# valid_req_states, default_req_states and master_os_up_match are used by the
-# get_state function.
-valid_req_states = ['ping',
-                    'packet_loss',
-                    'uptime',
-                    'epoch_seconds',
-                    'elapsed_boot_time',
-                    'rest',
-                    'chassis',
-                    'requested_chassis',
-                    'bmc',
-                    'requested_bmc',
-                    'boot_progress',
-                    'operating_system',
-                    'host',
-                    'requested_host',
-                    'attempts_left',
-                    'os_ping',
-                    'os_login',
-                    'os_run_cmd']
+platform_arch_type = os.environ.get('PLATFORM_ARCH_TYPE', '') or \
+    BuiltIn().get_variable_value("${PLATFORM_ARCH_TYPE}", default="power")
 
 # valid_os_req_states and default_os_req_states are used by the os_get_state
 # function.
@@ -119,6 +91,7 @@ valid_req_states = ['ping',
 valid_os_req_states = ['os_ping',
                        'os_login',
                        'os_run_cmd']
+
 # When a user calls get_os_state w/o specifying req_states,
 # default_os_req_states is used as its value.
 default_os_req_states = ['os_ping',
@@ -131,50 +104,176 @@ default_os_req_states = ['os_ping',
 USE_BMC_EPOCH_TIME = int(os.environ.get('USE_BMC_EPOCH_TIME', 0))
 
 # Useful state constant definition(s).
-# default_state is an initial value which may be of use to callers.
-default_state = DotDict([('rest', '1'),
-                         ('chassis', 'On'),
-                         ('bmc', 'Ready'),
-                         ('boot_progress', 'OSStart'),
-                         ('operating_system', 'Standby'),
-                         ('host', 'Running'),
-                         ('os_ping', '1'),
-                         ('os_login', '1'),
-                         ('os_run_cmd', '1')])
+if not redfish_support_trans_state:
+    # When a user calls get_state w/o specifying req_states, default_req_states
+    # is used as its value.
+    default_req_states = ['rest',
+                          'chassis',
+                          'bmc',
+                          'boot_progress',
+                          'operating_system',
+                          'host',
+                          'os_ping',
+                          'os_login',
+                          'os_run_cmd']
 
-# A match state for checking that the system is at "standby".
-standby_match_state = DotDict([('rest', '^1$'),
-                               ('chassis', '^Off$'),
-                               ('bmc', '^Ready$'),
-                               ('boot_progress', '^Off|Unspecified$'),
-                               ('operating_system', '^Inactive$'),
-                               ('host', '^Off$')])
+    # valid_req_states is a list of sub states supported by the get_state function.
+    # valid_req_states, default_req_states and master_os_up_match are used by the
+    # get_state function.
 
-# A match state for checking that the system is at "os running".
-os_running_match_state = DotDict([('chassis', '^On$'),
+    valid_req_states = ['ping',
+                        'packet_loss',
+                        'uptime',
+                        'epoch_seconds',
+                        'elapsed_boot_time',
+                        'rest',
+                        'chassis',
+                        'requested_chassis',
+                        'bmc',
+                        'requested_bmc',
+                        'boot_progress',
+                        'operating_system',
+                        'host',
+                        'requested_host',
+                        'attempts_left',
+                        'os_ping',
+                        'os_login',
+                        'os_run_cmd']
+
+    # default_state is an initial value which may be of use to callers.
+    default_state = DotDict([('rest', '1'),
+                             ('chassis', 'On'),
+                             ('bmc', 'Ready'),
+                             ('boot_progress', 'OSStart'),
+                             ('operating_system', 'BootComplete'),
+                             ('host', 'Running'),
+                             ('os_ping', '1'),
+                             ('os_login', '1'),
+                             ('os_run_cmd', '1')])
+
+    # A match state for checking that the system is at "standby".
+    standby_match_state = DotDict([('rest', '^1$'),
+                                   ('chassis', '^Off$'),
+                                   ('bmc', '^Ready$'),
+                                   ('boot_progress', '^Off|Unspecified$'),
+                                   ('operating_system', '^Inactive$'),
+                                   ('host', '^Off$')])
+
+    # A match state for checking that the system is at "os running".
+    os_running_match_state = DotDict([('chassis', '^On$'),
+                                      ('bmc', '^Ready$'),
+                                      ('boot_progress',
+                                       'FW Progress, Starting OS|OSStart'),
+                                      ('operating_system', 'BootComplete'),
+                                      ('host', '^Running$'),
+                                      ('os_ping', '^1$'),
+                                      ('os_login', '^1$'),
+                                      ('os_run_cmd', '^1$')])
+
+    # A master dictionary to determine whether the os may be up.
+    master_os_up_match = DotDict([('chassis', '^On$'),
                                   ('bmc', '^Ready$'),
                                   ('boot_progress',
                                    'FW Progress, Starting OS|OSStart'),
-                                  ('operating_system', 'Standby'),
-                                  ('host', '^Running$'),
-                                  ('os_ping', '^1$'),
-                                  ('os_login', '^1$'),
-                                  ('os_run_cmd', '^1$')])
+                                  ('operating_system', 'BootComplete'),
+                                  ('host', '^Running|Quiesced$')])
 
-# A master dictionary to determine whether the os may be up.
-master_os_up_match = DotDict([('chassis', '^On$'),
-                              ('bmc', '^Ready$'),
-                              ('boot_progress',
-                               'FW Progress, Starting OS|OSStart'),
-                              ('operating_system', 'Standby'),
-                              ('host', '^Running|Quiesced$')])
+    invalid_state_match = DotDict([('rest', '^$'),
+                                   ('chassis', '^$'),
+                                   ('bmc', '^$'),
+                                   ('boot_progress', '^$'),
+                                   ('operating_system', '^$'),
+                                   ('host', '^$')])
+else:
+    # When a user calls get_state w/o specifying req_states, default_req_states
+    # is used as its value.
+    default_req_states = ['redfish',
+                          'chassis',
+                          'bmc',
+                          'boot_progress',
+                          'host',
+                          'os_ping',
+                          'os_login',
+                          'os_run_cmd']
 
-invalid_state_match = DotDict([('rest', '^$'),
-                               ('chassis', '^$'),
-                               ('bmc', '^$'),
-                               ('boot_progress', '^$'),
-                               ('operating_system', '^$'),
-                               ('host', '^$')])
+    # valid_req_states is a list of sub states supported by the get_state function.
+    # valid_req_states, default_req_states and master_os_up_match are used by the
+    # get_state function.
+
+    valid_req_states = ['ping',
+                        'packet_loss',
+                        'uptime',
+                        'epoch_seconds',
+                        'elapsed_boot_time',
+                        'redfish',
+                        'chassis',
+                        'requested_chassis',
+                        'bmc',
+                        'requested_bmc',
+                        'boot_progress',
+                        'host',
+                        'requested_host',
+                        'attempts_left',
+                        'os_ping',
+                        'os_login',
+                        'os_run_cmd']
+
+    # default_state is an initial value which may be of use to callers.
+    default_state = DotDict([('redfish', '1'),
+                             ('chassis', 'On'),
+                             ('bmc', 'Enabled'),
+                             ('boot_progress', 'SystemHardwareInitializationComplete|OSRunning'),
+                             ('host', 'Enabled'),
+                             ('os_ping', '1'),
+                             ('os_login', '1'),
+                             ('os_run_cmd', '1')])
+
+    # A match state for checking that the system is at "standby".
+    standby_match_state = DotDict([('redfish', '^1$'),
+                                   ('chassis', '^Off$'),
+                                   ('bmc', '^Enabled$'),
+                                   ('boot_progress', '^None$'),
+                                   ('host', '^Disabled$')])
+
+    # A match state for checking that the system is at "os running".
+    os_running_match_state = DotDict([('chassis', '^On$'),
+                                      ('bmc', '^Enabled$'),
+                                      ('boot_progress',
+                                       'SystemHardwareInitializationComplete|OSRunning'),
+                                      ('host', '^Enabled$'),
+                                      ('os_ping', '^1$'),
+                                      ('os_login', '^1$'),
+                                      ('os_run_cmd', '^1$')])
+
+    # A master dictionary to determine whether the os may be up.
+    master_os_up_match = DotDict([('chassis', '^On$'),
+                                  ('bmc', '^Enabled$'),
+                                  ('boot_progress',
+                                   'SystemHardwareInitializationComplete|OSRunning'),
+                                  ('host', '^Enabled$')])
+
+    invalid_state_match = DotDict([('redfish', '^$'),
+                                   ('chassis', '^$'),
+                                   ('bmc', '^$'),
+                                   ('boot_progress', '^$'),
+                                   ('host', '^$')])
+
+# Filter the states based on platform type.
+if platform_arch_type == "x86":
+    default_req_states.remove("operating_system")
+    default_req_states.remove("boot_progress")
+    valid_req_states.remove("operating_system")
+    valid_req_states.remove("boot_progress")
+    del default_state["operating_system"]
+    del default_state["boot_progress"]
+    del standby_match_state["operating_system"]
+    del standby_match_state["boot_progress"]
+    del os_running_match_state["operating_system"]
+    del os_running_match_state["boot_progress"]
+    del master_os_up_match["operating_system"]
+    del master_os_up_match["boot_progress"]
+    del invalid_state_match["operating_system"]
+    del invalid_state_match["boot_progress"]
 
 
 def return_state_constant(state_name='default_state'):
@@ -383,7 +482,10 @@ def get_os_state(os_host="",
         if must_login:
             output, stderr, rc = bsu.os_execute_command("uptime", quiet=quiet,
                                                         ignore_err=1,
-                                                        time_out=20)
+                                                        time_out=20,
+                                                        os_host=os_host,
+                                                        os_username=os_username,
+                                                        os_password=os_password)
             if rc == 0:
                 os_login = 1
                 os_run_cmd = 1
@@ -489,11 +591,15 @@ def get_state(openbmc_host="",
     epoch_seconds = ''
     elapsed_boot_time = ''
     rest = ''
+    redfish = ''
     chassis = ''
     requested_chassis = ''
     bmc = ''
     requested_bmc = ''
-    boot_progress = ''
+    # BootProgress state will get populated when state logic enumerates the
+    # state URI. This is to prevent state dictionary  boot_progress value
+    # getting empty when the BootProgress is NOT found, making it optional.
+    boot_progress = 'NA'
     operating_system = ''
     host = ''
     requested_host = ''
@@ -525,12 +631,12 @@ def get_state(openbmc_host="",
             " && [ ! -z \"${uptime}\" ] && echo ${uptime}"
         cmd_buf = ["BMC Execute Command",
                    re.sub('\\$', '\\$', remote_cmd_buf), 'quiet=1',
-                   'test_mode=0']
+                   'test_mode=0', 'time_out=5']
         gp.qprint_issuing(cmd_buf, 0)
         gp.qprint_issuing(remote_cmd_buf, 0)
         try:
             stdout, stderr, rc =\
-                BuiltIn().wait_until_keyword_succeeds("10 sec", "0 sec",
+                BuiltIn().wait_until_keyword_succeeds("10 sec", "5 sec",
                                                       *cmd_buf)
             if rc == 0 and stderr == "":
                 uptime = stdout
@@ -560,45 +666,89 @@ def get_state(openbmc_host="",
         global start_boot_seconds
         elapsed_boot_time = int(epoch_seconds) - start_boot_seconds
 
-    master_req_rest = ['rest', 'host', 'requested_host', 'operating_system',
-                       'attempts_left', 'boot_progress', 'chassis',
-                       'requested_chassis' 'bmc' 'requested_bmc']
+    if not redfish_support_trans_state:
+        master_req_rest = ['rest', 'host', 'requested_host', 'operating_system',
+                           'attempts_left', 'boot_progress', 'chassis',
+                           'requested_chassis' 'bmc' 'requested_bmc']
 
-    req_rest = [sub_state for sub_state in req_states if sub_state in
-                master_req_rest]
-    need_rest = (len(req_rest) > 0)
-    state = DotDict()
-    if need_rest:
-        cmd_buf = ["Read Properties", SYSTEM_STATE_URI + "enumerate",
-                   "quiet=${" + str(quiet) + "}", "timeout=30"]
-        gp.dprint_issuing(cmd_buf)
-        status, ret_values = \
-            BuiltIn().run_keyword_and_ignore_error(*cmd_buf)
-        if status == "PASS":
-            state['rest'] = '1'
-        else:
-            state['rest'] = '0'
+        req_rest = [sub_state for sub_state in req_states if sub_state in
+                    master_req_rest]
+        need_rest = (len(req_rest) > 0)
+        state = DotDict()
+        if need_rest:
+            cmd_buf = ["Read Properties", SYSTEM_STATE_URI + "enumerate",
+                       "quiet=${" + str(quiet) + "}", "timeout=30"]
+            gp.dprint_issuing(cmd_buf)
+            status, ret_values = \
+                BuiltIn().run_keyword_and_ignore_error(*cmd_buf)
+            if status == "PASS":
+                state['rest'] = '1'
+            else:
+                state['rest'] = '0'
 
-        if int(state['rest']):
-            for url_path in ret_values:
-                for attr_name in ret_values[url_path]:
-                    # Create a state key value based on the attr_name.
-                    try:
-                        ret_values[url_path][attr_name] = \
-                            re.sub(r'.*\.', "",
-                                   ret_values[url_path][attr_name])
-                    except TypeError:
-                        pass
-                    # Do some key name manipulations.
-                    new_attr_name = re.sub(r'^Current|(State|Transition)$',
-                                           "", attr_name)
-                    new_attr_name = re.sub(r'BMC', r'Bmc', new_attr_name)
-                    new_attr_name = re.sub(r'([A-Z][a-z])', r'_\1',
-                                           new_attr_name)
-                    new_attr_name = new_attr_name.lower().lstrip("_")
-                    new_attr_name = re.sub(r'power', r'chassis', new_attr_name)
-                    if new_attr_name in req_states:
-                        state[new_attr_name] = ret_values[url_path][attr_name]
+            if int(state['rest']):
+                for url_path in ret_values:
+                    # Skip conflicting "CurrentHostState" URL from the enum
+                    # /xyz/openbmc_project/state/hypervisor0
+                    if "hypervisor0" in url_path:
+                        continue
+
+                    if platform_arch_type == "x86":
+                        # Skip conflicting "CurrentPowerState" URL from the enum
+                        # /xyz/openbmc_project/state/chassis_system0
+                        if "chassis_system0" in url_path:
+                            continue
+
+                    for attr_name in ret_values[url_path]:
+                        # Create a state key value based on the attr_name.
+                        try:
+                            ret_values[url_path][attr_name] = \
+                                re.sub(r'.*\.', "",
+                                       ret_values[url_path][attr_name])
+                        except TypeError:
+                            pass
+                        # Do some key name manipulations.
+                        new_attr_name = re.sub(r'^Current|(State|Transition)$',
+                                               "", attr_name)
+                        new_attr_name = re.sub(r'BMC', r'Bmc', new_attr_name)
+                        new_attr_name = re.sub(r'([A-Z][a-z])', r'_\1',
+                                               new_attr_name)
+                        new_attr_name = new_attr_name.lower().lstrip("_")
+                        new_attr_name = re.sub(r'power', r'chassis', new_attr_name)
+                        if new_attr_name in req_states:
+                            state[new_attr_name] = ret_values[url_path][attr_name]
+    else:
+        master_req_rf = ['redfish', 'host', 'requested_host',
+                         'attempts_left', 'boot_progress', 'chassis',
+                         'requested_chassis' 'bmc' 'requested_bmc']
+
+        req_rf = [sub_state for sub_state in req_states if sub_state in
+                  master_req_rf]
+        need_rf = (len(req_rf) > 0)
+        state = DotDict()
+        if need_rf:
+            cmd_buf = ["Redfish Get States"]
+            gp.dprint_issuing(cmd_buf)
+            try:
+                status, ret_values = \
+                    BuiltIn().run_keyword_and_ignore_error(*cmd_buf)
+            except Exception as ex:
+                # Robot raised UserKeywordExecutionFailed error exception.
+                gp.dprint_issuing("Retrying Redfish Get States")
+                status, ret_values = \
+                    BuiltIn().run_keyword_and_ignore_error(*cmd_buf)
+
+            gp.dprint_vars(status, ret_values)
+            if status == "PASS":
+                state['redfish'] = '1'
+            else:
+                state['redfish'] = '0'
+
+            if int(state['redfish']):
+                state['chassis'] = ret_values['chassis']
+                state['boot_progress'] = ret_values['boot_progress']
+                state['host'] = ret_values['host']
+                state['bmc'] = ret_values['bmc']
 
     for sub_state in req_states:
         if sub_state in state:
@@ -906,6 +1056,9 @@ def wait_for_comm_cycle(start_boot_seconds,
                            (expressions_key(), [expr])])
     wait_state(match_state, wait_time="12 mins", interval="5 seconds")
 
-    gp.qprint_timen("Verifying that REST API interface is working.")
-    match_state = DotDict([('rest', '^1$')])
+    gp.qprint_timen("Verifying that REST/Redfish API interface is working.")
+    if not redfish_support_trans_state:
+        match_state = DotDict([('rest', '^1$')])
+    else:
+        match_state = DotDict([('redfish', '^1$')])
     state = wait_state(match_state, wait_time="5 mins", interval="2 seconds")

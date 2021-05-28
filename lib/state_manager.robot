@@ -232,9 +232,9 @@ Put BMC State
 
     ${bmc_state}=  Get BMC State
     Run Keyword If  '${bmc_state}' == '${expected_state}'
-    ...  Log  BMC is already in ${expected_state} state
-    ...  ELSE  Run Keywords  Initiate BMC Reboot  AND
-    ...  Wait for BMC state  ${expected_state}
+    ...    Log  BMC is already in ${expected_state} state
+    ...  ELSE
+    ...    OBMC Reboot (off)
 
 Initiate BMC Reboot
     [Documentation]  Initiate BMC reboot.
@@ -313,36 +313,3 @@ Power Off Request
 Wait For BMC Ready
     [Documentation]  Check BMC state and wait for BMC Ready.
     Wait Until Keyword Succeeds  10 min  10 sec  Is BMC Ready
-
-
-Redfish Get BMC State
-    [Documentation]  Return BMC health state.
-
-    # "Enabled" ->  BMC Ready, "Starting" -> BMC NotReady
-
-    # Example:
-    # "Status": {
-    #    "Health": "OK",
-    #    "HealthRollup": "OK",
-    #    "State": "Enabled"
-    # },
-
-    ${status}=  Redfish.Get Attribute  /redfish/v1/Managers/bmc  Status
-    [Return]  ${status["State"]}
-
-
-Redfish Get Host State
-    [Documentation]  Return host power and health state.
-
-    # Refer: http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Status
-
-    # Example:
-    # "PowerState": "Off",
-    # "Status": {
-    #    "Health": "OK",
-    #    "HealthRollup": "OK",
-    #    "State": "StandbyOffline"
-    # },
-
-    ${chassis}=  Redfish.Get Properties  /redfish/v1/Chassis/chassis
-    [Return]  ${chassis["PowerState"]}  ${chassis["Status"]["State"]}

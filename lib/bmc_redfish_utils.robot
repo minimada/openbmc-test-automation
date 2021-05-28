@@ -48,6 +48,9 @@ Redfish BMC Reset Operation
     #  "target": "/redfish/v1/Managers/bmc/Actions/Manager.Reset"
     # }
 
+    ${session_info}=  Redfish.Get Session Info
+    Log  ${session_info}
+
     ${target}=  redfish_utils.Get Target Actions  /redfish/v1/Managers/bmc/  Manager.Reset
     ${payload}=  Create Dictionary  ResetType=GracefulRestart
     Redfish.Post  ${target}  body=&{payload}
@@ -58,6 +61,53 @@ Reset BIOS Via Redfish
 
     ${target}=  redfish_utils.Get Target Actions  /redfish/v1/Systems/system/Bios/  Bios.ResetBios
     Redfish.Post  ${target}  valid_status_codes=[${HTTP_OK}]
+
+
+Redfish Delete Session
+    [Documentation]  Redfish delete session.
+    [Arguments]  ${session_info}
+
+    # Description of argument(s):
+    # session_info      Session information are stored in dictionary.
+
+    # ${session_info} = {
+    #     'SessionIDs': 'XXXXXXXXX',
+    #     'ClientID': 'XXXXXX',
+    #     'SessionToken': 'XXXXXXXXX',
+    #     'SessionResp': session response from redfish login
+    # }
+
+    # SessionIDs   : Session IDs
+    # ClientID     : Client ID
+    # SessionToken : Session token
+    # SessionResp  : Response of creating an redfish login session
+
+    Redfish.Delete  /redfish/v1/SessionService/Sessions/${session_info["SessionIDs"]}
+
+
+Redfish Delete List Of Session
+    [Documentation]  Redfish delete session from list of session records, individual session information
+    ...              are stored in dictionary.
+    [Arguments]  ${session_info_list}
+
+    # Description of argument(s):
+    # session_info_list    List contains individual session record are stored in dictionary.
+
+    # ${session_info_list} = [{
+    #     'SessionIDs': 'XXXXXXXXX',
+    #     'ClientID': 'XXXXXX',
+    #     'SessionToken': 'XXXXXXXXX',
+    #     'SessionResp': session response from redfish login
+    # }]
+
+    # SessionIDs   : Session IDs
+    # ClientID     : Client ID
+    # SessionToken : Session token
+    # SessionResp  : Response of creating an redfish login session
+
+    FOR  ${session_record}  IN  @{session_info_list}
+      Redfish.Delete  /redfish/v1/SessionService/Sessions/${session_record["SessionIDs"]}
+    END
 
 
 Delete All Redfish Sessions
@@ -72,8 +122,9 @@ Delete All Redfish Sessions
     Remove Values From List  ${resp_list}  ${saved_session_info["location"]}
 
     FOR  ${session}  IN  @{resp_list}
-        Redfish.Delete  ${session}
+        Run Keyword And Ignore Error  Redfish.Delete  ${session}
     END
+
 
 Get Valid FRUs
     [Documentation]  Return a dictionary containing all of the valid FRU records for the given fru_type.
@@ -212,4 +263,40 @@ Delete BMC Users Via Redfish
         Redfish.Delete  /redfish/v1/AccountService/Accounts/${users['${role}'][0]}
         ...  valid_status_codes=[${HTTP_OK}, ${HTTP_NOT_FOUND}]
     END
+
+
+Expire And Update New Password Via Redfish
+    [Documentation]  Expire and change password and verify using password.
+    [Arguments]  ${username}  ${password}  ${new_password}
+
+    # Description of argument(s):
+    # username        The username to be used to login to the BMC.
+    # password        The password to be used to login to the BMC.
+    # new_password    The new password to be used to update password.
+
+    # Expire admin password using ssh.
+    Open Connection And Log In  ${username}  ${password}
+    ${output}  ${stderr}  ${rc}=  BMC Execute Command  passwd --expire ${username}
+    Should Contain  ${output}  password expiry information changed
+
+    # Verify user password expired using Redfish
+    Verify User Password Expired Using Redfish  ${username}  ${password}
+
+    # Change user password.
+    Redfish.Patch  /redfish/v1/AccountService/Accounts/admin_user
+    ...  body={'Password': '${new_password}'}
+    Redfish.Logout
+
+
+Verify User Password Expired Using Redfish
+    [Documentation]  Checking whether user password expired or not using redfish.
+
+    # Description of argument(s):
+    # username        The username to be used to login to the BMC.
+    # password        The password to be used to login to the BMC.
+
+    [Arguments]  ${username}  ${password}  ${expected_result}=${True}
+    Redfish.Login  ${username}  ${password}
+    ${resp}=  Redfish.Get  /redfish/v1/AccountService/Accounts/${username}
+    Should Be Equal  ${resp.dict["PasswordChangeRequired"]}  ${expected_result}
 

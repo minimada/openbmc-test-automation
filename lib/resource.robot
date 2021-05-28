@@ -7,6 +7,16 @@ Variables         ../data/variables.py
 
 *** Variables ***
 
+# By default power, support x86 as well.
+${PLATFORM_ARCH_TYPE}             power
+
+# Transition REST vs Redfish ONLY temporary changes for stagging
+# automation infrastructure change and for continuity.
+${REDFISH_SUPPORT_TRANS_STATE}    ${0}
+
+# By default Delete all Redfish session per boot run.
+${REDFISH_DELETE_SESSIONS}        ${1}
+
 ${OPENBMC_MODEL}  ${EMPTY}
 ${OPENBMC_HOST}   ${EMPTY}
 ${DBUS_PREFIX}    ${EMPTY}
@@ -17,6 +27,16 @@ ${OPENBMC_USERNAME}    root
 ${OPENBMC_PASSWORD}    0penBmc
 ${REST_USERNAME}       root
 ${REST_PASSWORD}       0penBmc
+
+${CHASSIS_ID}  chassis
+
+# MTLS_ENABLED indicates whether mTLS is enabled.
+${MTLS_ENABLED}        False
+# Valid mTLS certificate for authentication.
+${VALID_CERT}          ${EMPTY}
+# Path of mTLS certificates directory.
+${CERT_DIR_PATH}       ${EMPTY}
+
 ${IPMI_PASSWORD}       0penBmc
 ${MACHINE_TYPE}    palmetto
 ${DBUS_POLL_INTERVAL}      15s
@@ -26,6 +46,8 @@ ${OPENBMC_REBOOT_TIMEOUT}   ${10}
 ${IPMI_COMMAND}    External
 # IPMI chipher default.
 ${IPMI_CIPHER_LEVEL}  ${17}
+# IPMI timeout default.
+${IPMI_TIMEOUT}       ${3}
 
 # PDU related parameters
 ${PDU_TYPE}         ${EMPTY}

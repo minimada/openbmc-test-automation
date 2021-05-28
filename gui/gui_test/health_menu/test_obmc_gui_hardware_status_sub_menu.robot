@@ -2,7 +2,7 @@
 
 Documentation   Test OpenBMC GUI "Hardware Status" sub-menu of "Health" menu.
 
-Resource        ../../lib/resource.robot
+Resource        ../../lib/gui_resource.robot
 
 Suite Setup     Launch Browser And Login GUI
 Suite Teardown  Close Browser
@@ -21,6 +21,18 @@ Verify Navigation To Hardware Status Page
 
     Page Should Contain Element  ${xpath_hardware_status_heading}
 
+
+Verify Components On Hardware Status Page
+    [Documentation]  Verify whether required components are displayed hardware status page.
+    [Tags]  Verify_Components_On_Hardware_Status_Page
+
+    Page Should Contain  System
+    Page Should Contain  BMC manager
+    Page Should Contain  Chassis
+    Page Should Contain  DIMM slot
+    Page Should Contain  Fans
+    Page Should Contain  Power supplies
+    Page Should Contain  Processors
 
 *** Keywords ***
 

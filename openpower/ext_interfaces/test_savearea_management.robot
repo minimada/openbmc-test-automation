@@ -61,6 +61,33 @@ Redfish Fail To Upload Multiple Partition File To BMC
     650KB_file,501KB_file
 
 
+Redfish Upload Same Partition File To BMC In Loop
+    [Documentation]  Upload same partition file to BMC using redfish in loop.
+    [Tags]  Redfish_Upload_Same_Partition_File_To_BMC_In_Loop
+    [Template]  Redfish Upload Partition File In Loop
+
+    # file_name
+    500KB_file
+
+
+Redfish Upload And Delete Same Partition File To BMC In Loop
+    [Documentation]  Upload same partition file to BMC using redfish in loop.
+    [Tags]  Redfish_Upload_And_Delete_Same_Partition_File_To_BMC_In_Loop
+    [Template]  Redfish Upload And Delete Partition File In Loop
+
+    # file_name
+    500KB_file
+
+
+Redfish Partition File Upload Post BMC Reboot
+    [Documentation]  Upload partition file to BMC using redfish, after the BMC reboot.
+    [Tags]  Redfish_Partition_File_Upload_Post_BMC_Reboot
+    [Template]  Verify Partition File Upload Post BMC Reboot
+
+    # file_name
+    500KB_file
+
+
 Redfish Partition File Persistency On BMC Reboot
     [Documentation]  Upload partition file to BMC using redfish and is same after reboot.
     [Tags]  Redfish_Partition_File_Persistency_On_BMC_Reboot
@@ -163,7 +190,7 @@ Non Admin Users Fail To Upload Partition File
 
 
 Non Admin User Delete Non Existence Of Partition File
-    [Documentation]  Delete the partion file if does not exists.
+    [Documentation]  Delete the partition file if does not exists.
     [Tags]  Non_Admin_User_Delete_Non_Existence_Of_Partition_File
     [Template]  Non Admin Delete Non Existence Partition File
 
@@ -328,7 +355,7 @@ Verify Partition File On BMC
 
     FOR  ${conf_file}  IN  @{file_name}
       ${status}  ${stderr}  ${rc}=  BMC Execute Command
-      ...  ls -l /var/lib/obmc/bmc-console-mgmt/save-area/${conf_file} | wc -l
+      ...  ls -l /var/lib/bmcweb/ibm-management-console/configfiles/${conf_file} | wc -l
       Valid Value  ${status}  [${Partition_status}]
     END
 
@@ -353,7 +380,7 @@ Redfish Upload Partition File
 
 
 Redfish Fail To Upload Partition File
-    [Documentation]  Fail to uplaod the partition file.
+    [Documentation]  Fail to upload the partition file.
     [Arguments]  ${file_name}
 
     # Description of argument(s):
@@ -365,6 +392,57 @@ Redfish Fail To Upload Partition File
     Verify Partition File On BMC  ${Partition_file_list}  Partition_status=0
     Delete BMC Partition File  ${Partition_file_list}  ${HTTP_NOT_FOUND}  ${RESOURCE_NOT_FOUND}
     Delete Local Partition File  ${Partition_file_list}
+
+
+Redfish Upload Partition File In Loop
+    [Documentation]  Upload the same partition file multiple times in loop to BMC.
+    [Arguments]  ${file_name}
+
+    # Description of argument(s):
+    # file_name    Partition file name.
+
+    @{Partition_file_list} =  Split String  ${file_name}  ,
+    Create Partition File  ${Partition_file_list}
+
+    Upload Partition File To BMC  ${Partition_file_list}  ${HTTP_OK}  ${FILE_UPLOAD_MESSAGE}
+    Verify Partition File On BMC  ${Partition_file_list}  Partition_status=1
+
+    FOR  ${count}  IN RANGE  1  11
+      Upload Partition File To BMC  ${Partition_file_list}  ${HTTP_OK}  ${FILE_UPDATED}
+      Verify Partition File On BMC  ${Partition_file_list}  Partition_status=1
+    END
+
+    Initialize OpenBMC
+    Delete BMC Partition File  ${Partition_file_list}  ${HTTP_OK}  ${FILE_DELETED_MESSAGE}
+    Delete Local Partition File  ${Partition_file_list}
+
+
+Redfish Upload And Delete Partition File In Loop
+    [Documentation]  Upload the same partition file multiple times in loop to BMC.
+    [Arguments]  ${file_name}
+
+    # Description of argument(s):
+    # file_name    Partition file name.
+
+    FOR  ${count}  IN RANGE  1  11
+      Redfish Upload Partition File  ${file_name}
+    END
+
+
+Verify Partition File Upload Post BMC Reboot
+    [Documentation]  Upload the partition file, after BMC reboot.
+    [Arguments]  ${file_name}
+
+    # Description of argument(s):
+    # file_name    Partition file name.
+
+    ${before_reboot_xauth_token}=  Set Variable  ${XAUTH_TOKEN}
+    Redfish BMC Reset Operation
+    Set Global Variable  ${XAUTH_TOKEN}  ${before_reboot_xauth_token}
+
+    Is BMC Standby
+
+    Redfish Upload Partition File  ${file_name}
 
 
 Redfish Partition File Persistency
@@ -379,7 +457,13 @@ Redfish Partition File Persistency
     Create Partition File  ${Partition_file_list}
     Upload Partition File To BMC  ${Partition_file_list}  ${HTTP_OK}  ${FILE_UPLOAD_MESSAGE}
     Verify Partition File On BMC  ${Partition_file_list}  Partition_status=1
-    Redfish OBMC Reboot (off)
+
+    ${before_reboot_xauth_token}=  Set Variable  ${XAUTH_TOKEN}
+    Redfish BMC Reset Operation
+    Set Global Variable  ${XAUTH_TOKEN}  ${before_reboot_xauth_token}
+
+    Is BMC Standby
+
     Verify Partition File On BMC  ${Partition_file_list}  Partition_status=1
     Initialize OpenBMC
     Run Keyword If  ${num_records} == ${1}
@@ -450,14 +534,20 @@ Redfish Read Partition File
     Verify Partition File On BMC  ${Partition_file_list}  Partition_status=1
     Verify Redfish Partition File Content  ${Partition_file_list}  ${content_dict}  ${HTTP_OK}
 
+    ${before_reboot_xauth_token}=  Set Variable  ${XAUTH_TOKEN}
+
     Run Keyword If  ${True} == ${reboot_flag}
-    ...  Run Keywords  Redfish OBMC Reboot (off)  AND
+    ...  Run Keywords  Redfish BMC Reset Operation  AND
+    ...  Set Global Variable  ${XAUTH_TOKEN}  ${before_reboot_xauth_token}  AND
+    ...  Is BMC Standby  AND
     ...  Initialize OpenBMC  AND
     ...  Verify Redfish Partition File Content  ${Partition_file_list}  ${content_dict}  ${HTTP_OK}
+
     Run Keyword If  ${num_records} == ${1}
     ...    Delete BMC Partition File  ${Partition_file_list}  ${HTTP_OK}  ${FILE_DELETED_MESSAGE}
     ...  ELSE
     ...    Delete All BMC Partition File  ${HTTP_OK}
+
     Delete Local Partition File  ${Partition_file_list}
 
 
@@ -476,8 +566,12 @@ Redfish Update Partition File With Same Content
     Verify Partition File On BMC  ${Partition_file_list}  Partition_status=1
     Verify Redfish Partition File Content  ${Partition_file_list}  ${content_dict}  ${HTTP_OK}
 
+    ${before_reboot_xauth_token}=  Set Variable  ${XAUTH_TOKEN}
+
     Run Keyword If  ${True} == ${reboot_flag}
-    ...  Run Keywords  Redfish OBMC Reboot (off)  AND
+    ...  Run Keywords  Redfish BMC Reset Operation  AND
+    ...  Set Global Variable  ${XAUTH_TOKEN}  ${before_reboot_xauth_token}  AND
+    ...  Is BMC Standby  AND
     ...  Initialize OpenBMC
 
     ${content_dict}=  Add Content To Files  ${Partition_file_list}  ${0}
@@ -504,8 +598,12 @@ Redfish Update Partition File With Different Content
     Verify Partition File On BMC  ${Partition_file_list}  Partition_status=1
     Verify Redfish Partition File Content  ${Partition_file_list}  ${content_dict}  ${HTTP_OK}
 
+    ${before_reboot_xauth_token}=  Set Variable  ${XAUTH_TOKEN}
+
     Run Keyword If  ${True} == ${reboot_flag}
-    ...  Run Keywords  Redfish OBMC Reboot (off)  AND
+    ...  Run Keywords  Redfish BMC Reset Operation  AND
+    ...  Set Global Variable  ${XAUTH_TOKEN}  ${before_reboot_xauth_token}  AND
+    ...  Is BMC Standby  AND
     ...  Initialize OpenBMC
 
     ${content_dict}=  Add Content To Files  ${Partition_file_list}  ${1}
@@ -559,7 +657,7 @@ Redfish Delete Non Existence Partition File
 
 
 Non Admin User To Upload Partition File
-    [Documentation]  Non admin user to uplaod the partition file.
+    [Documentation]  Non admin user to upload the partition file.
     [Arguments]  ${file_name}  ${username}  ${password}  ${role}  ${enabled}=${True}
 
     # Description of argument(s):
@@ -580,7 +678,7 @@ Non Admin User To Upload Partition File
 
 
 Non Admin Delete Non Existence Partition File
-    [Documentation]  Non admin user to uplaod the partition file.
+    [Documentation]  Non admin user to upload the partition file.
     [Arguments]  ${file_name}  ${username}  ${password}  ${role}  ${enabled}=${True}
 
     # Description of argument(s):

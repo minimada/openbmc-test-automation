@@ -58,6 +58,21 @@ Create Test Event Log And Verify
     Event Log Should Exist
 
 
+Delete Redfish Event Log And Verify
+    [Documentation]  Delete Redfish event log and verify via Redfish.
+    [Tags]  Delete_Redfish_Event_Log_And_Verify
+
+    Redfish.Login
+    Redfish Purge Event Log
+    Create Test PEL Log
+    ${elog_entry}=  Get Event Logs
+
+    Redfish.Delete  /redfish/v1/Systems/system/LogServices/EventLog/Entries/${elog_entry[0]["Id"]}
+
+    ${error_entries}=  Get Redfish Error Entries
+    Should Be Empty  ${error_entries}
+
+
 Test Event Log Persistency On Restart
     [Documentation]  Restart logging service and verify event logs.
     [Tags]  Test_Event_Log_Persistency_On_Restart
@@ -202,6 +217,47 @@ Create Test Event Log And Verify Time Stamp
     Should Be True  ${time_stamp2} > ${time_stamp1}
 
 
+Verify Setting Error Log As Resolved
+    [Documentation]  Verify modified field of error log is updated when error log is marked resolved.
+    [Tags]  Verify_Setting_Error_Log_As_Resolved
+
+    Create Test PEL Log
+    ${elog_entry}=  Get Event Logs
+
+    # Wait for 5 seconds after creating error log.
+    Sleep  5s
+
+    # Mark error log as resolved by setting it to true.
+    Redfish.Patch  ${EVENT_LOG_URI}Entries/${elog_entry[0]["Id"]}  body={'Resolved':True}
+
+    ${elog_entry}=  Get Event Logs
+
+    # Example error log with resolve field set to true:
+    # {
+    #  "@odata.id": "/redfish/v1/Systems/system/LogServices/EventLog/Entries/2045",
+    #  "@odata.type": "#LogEntry.v1_8_0.LogEntry",
+    #  "AdditionalDataURI": "/redfish/v1/Systems/system/LogServices/EventLog/attachment/2045",
+    #  "Created": "2021-05-11T04:45:07+00:00",
+    #  "EntryType": "Event",
+    #  "Id": "2045",
+    #  "Message": "xyz.openbmc_project.Host.Error.Event",
+    #  "Modified": "2021-05-11T07:24:36+00:00",
+    #  "Name": "System Event Log Entry",
+    #  "Resolved": true,
+    #  "Severity": "OK"
+    # }
+
+    Should Be Equal As Strings  ${elog_entry[0]["Resolved"]}  True
+
+    # Difference created and modified time of error log should be around 5 seconds.
+    ${creation_time}=  Convert Date  ${elog_entry[0]["Created"]}  epoch
+    ${modification_time}=  Convert Date  ${elog_entry[0]["Modified"]}  epoch
+
+    ${diff}=  Subtract Date From Date  ${modification_time}  ${creation_time}
+    ${diff}=  Convert To Number  ${diff}
+    Should Be True  4 < ${diff} < 8
+
+
 Verify IPMI SEL Delete
     [Documentation]  Verify IPMI SEL delete operation.
     [Tags]  Verify_IPMI_SEL_Delete
@@ -313,7 +369,7 @@ Create Multiple Test Event Logs And Delete All
 # TODO: openbmc/openbmc-test-automation#1789
 Create Two Test Event Logs And Delete One
     [Documentation]  Create two event logs and delete the first entry.
-    [Tags]  Create_Two_Test_Eevent_Logs_And_Delete_One
+    [Tags]  Create_Two_Test_Event_Logs_And_Delete_One
 
     Redfish Purge Event Log
     Create Event Log
@@ -440,6 +496,19 @@ Test Teardown Execution
     #FFDC On Test Case Fail
     Redfish.Login
     Redfish Purge Event Log
+
+
+Get Redfish Error Entries
+    [Documentation]  Return Redfish error ids list.
+    ${error_uris}=  redfish_utils.get_member_list  /redfish/v1/Systems/system/LogServices/EventLog/Entries
+    ${error_ids}=  Create List
+
+    FOR  ${error_uri}  IN  @{error_uris}
+      ${error_id}=  Fetch From Right  ${error_uri}  /
+      Append To List  ${error_ids}  ${error_id}
+    END
+
+    [Return]  ${error_ids}
 
 
 Event Log Should Not Exist
