@@ -11,7 +11,7 @@ some test output showing machine state:
 default_state:
   default_state[chassis]:                         On
   default_state[boot_progress]:                   OSStart
-  default_state[operating_system]:                BootComplete
+  default_state[operating_system]:                Standby
   default_state[host]:                            Running
   default_state[os_ping]:                         1
   default_state[os_login]:                        1
@@ -145,7 +145,7 @@ if not redfish_support_trans_state:
                              ('chassis', 'On'),
                              ('bmc', 'Ready'),
                              ('boot_progress', 'OSStart'),
-                             ('operating_system', 'BootComplete'),
+                             ('operating_system', 'Standby'),
                              ('host', 'Running'),
                              ('os_ping', '1'),
                              ('os_login', '1'),
@@ -164,7 +164,7 @@ if not redfish_support_trans_state:
                                       ('bmc', '^Ready$'),
                                       ('boot_progress',
                                        'FW Progress, Starting OS|OSStart'),
-                                      ('operating_system', 'BootComplete'),
+                                      ('operating_system', 'Standby'),
                                       ('host', '^Running$'),
                                       ('os_ping', '^1$'),
                                       ('os_login', '^1$'),
@@ -175,7 +175,7 @@ if not redfish_support_trans_state:
                                   ('bmc', '^Ready$'),
                                   ('boot_progress',
                                    'FW Progress, Starting OS|OSStart'),
-                                  ('operating_system', 'BootComplete'),
+                                  ('operating_system', 'Standby'),
                                   ('host', '^Running|Quiesced$')])
 
     invalid_state_match = DotDict([('rest', '^$'),
