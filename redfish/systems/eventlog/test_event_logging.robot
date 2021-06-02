@@ -477,7 +477,7 @@ Suite Setup Execution
 Suite Teardown Execution
     [Documentation]  Do the post suite teardown.
 
-    Delete All BMC Dump
+    Redfish Delete All BMC Dumps
     Redfish.Logout
 
 
