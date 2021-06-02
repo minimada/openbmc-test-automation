@@ -64,7 +64,7 @@ Suite Setup Execution
     Valid File Path  IMAGE_HOST_FILE_PATH_0
     Valid File Path  IMAGE_HOST_FILE_PATH_1
     Redfish.Login
-    Delete All BMC Dump
+    Redfish Delete All BMC Dumps
     Redfish Purge Event Log
     Redfish Power On  stack_mode=skip
 

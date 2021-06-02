@@ -115,7 +115,7 @@ Suite Setup Execution
     [Documentation]  Do the suite setup.
 
     Redfish.Login
-    Delete All BMC Dump
+    Redfish Delete All BMC Dumps
     Redfish Purge Event Log
 
 
