@@ -219,5 +219,3 @@ Verify MAC Address Via FW_Env
     ...  ELSE
     ...      Should Be Equal  ${status}  ${True}
     ...      msg=Not allowing the configuration of a valid MAC.
-
-

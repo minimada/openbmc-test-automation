@@ -287,7 +287,9 @@ Validate MAC On FW_Env
     ...  msg=MAC address ${fw_env_addr} does not match ${mac_new_addr}.
 
 Truncate MAC Address
+    [Documentation]  Truncates and returns user provided MAC address.
     [Arguments]    ${sys_mac_addr}  ${user_mac_addr}
+
     # Description of argument(s):
     # sys_mac_addr  MAC address of the BMC.
     # user_mac_addr user provided MAC address.
@@ -303,8 +305,9 @@ Truncate MAC Address
         Return From Keyword If  ${invalid_mac_byte}  ${user_mac_addr}
         ${mac_int} =    Convert To Integer      ${user_mac_list}[${mac_byte}]   16
         ${user_mac_len} =  Get Length  ${user_mac_list}
-        ${user_mac_byte}=  Run Keyword IF  ${mac_int} >= ${256}  Truncate MAC Bits  ${user_mac_list}[${mac_byte}]
-                                      ...  ELSE  Set Variable  ${user_mac_list}[${mac_byte}]
+        ${user_mac_byte}=  Run Keyword IF
+        ...  ${mac_int} >= ${256}  Truncate MAC Bits  ${user_mac_list}[${mac_byte}]
+        ...  ELSE  Set Variable  ${user_mac_list}[${mac_byte}]
 
         Append To List  ${user_new_mac_list}  ${user_mac_byte}
         ${mac_byte} =    Set Variable    ${mac_byte + 1}
@@ -315,7 +318,9 @@ Truncate MAC Address
     [Return]  ${user_new_mac_string}
 
 Truncate MAC Bits
+    [Documentation]  Truncates user provided MAC address byte to bits.
     [Arguments]    ${user_mac_addr_byte}
+
     # Description of argument(s):
     # user_mac_addr_byte user provided MAC address byte to truncate bits
 
@@ -341,8 +346,11 @@ Configure Hostname
     # Description of argument(s):
     # hostname  A hostname value which is to be configured on BMC.
 
+    ${active_channel_config}=  Get Active Channel Config
+    ${ethernet_interface}=  Set Variable  ${active_channel_config['${CHANNEL_NUMBER}']['name']}
+
     ${data}=  Create Dictionary  HostName=${hostname}
-    Redfish.patch  ${REDFISH_NW_PROTOCOL_URI}  body=&{data}
+    Redfish.patch  ${REDFISH_NW_ETH_IFACE}${ethernet_interface}  body=&{data}
     ...  valid_status_codes=[${HTTP_OK}, ${HTTP_NO_CONTENT}]
 
 
