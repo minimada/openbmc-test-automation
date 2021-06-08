@@ -36,6 +36,7 @@ class gui_variables():
 
     # Control menu
     xpath_control_menu = "//*[@data-test-id='nav-button-control']"
+    xpath_factory_reset_sub_menu = "//*[@data-test-id='nav-item-factory-reset']"
     xpath_manage_power_usage_sub_menu = "//*[@data-test-id='nav-item-manage-power-usage']"
     xpath_reboot_bmc_sub_menu = "//*[@data-test-id='nav-item-reboot-bmc']"
     xpath_server_led_sub_menu = "//*[@data-test-id='nav-item-server-led']"
@@ -51,6 +52,7 @@ class gui_variables():
 
     # Access control menu
     xpath_access_control_menu = "//*[@data-test-id='nav-button-access-control']"
+    xpath_client_sessions_sub_menu = "//*[@data-test-id='nav-item-client-sessions']"
     xpath_ldap_sub_menu = "//*[@data-test-id='nav-item-ldap']"
     xpath_save_settings_button = "//button[contains(text(),'Save settings')]"
     xpath_local_user_management_sub_menu = "//*[@data-test-id='nav-item-local-user-management']"
