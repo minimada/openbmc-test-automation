@@ -143,6 +143,54 @@ Verify Redfish Software Hex ID
     END
 
 
+Verify Redfish FirmwareInventory Is Updateable
+    [Documentation]  Verify the redfish firmware inventory path is updateable.
+    [Tags]  Verify_Redfish_FirmwareInventory_Is_Updateable
+
+    ${sw_member_list}=  Redfish_Utils.Get Member List  /redfish/v1/UpdateService/FirmwareInventory
+
+    # sw_member_list:
+    #   [0]:                            /redfish/v1/UpdateService/FirmwareInventory/98744d76
+    #   [1]:                            /redfish/v1/UpdateService/FirmwareInventory/9a8028ec
+    #   [2]:                            /redfish/v1/UpdateService/FirmwareInventory/acc9e073
+
+    FOR  ${sw_member}  IN  @{sw_member_list}
+      ${resp}=  Redfish.Get Attribute  ${sw_member}  Updateable
+
+      # Example:
+      # "Updateable": true,
+
+      Should Be Equal As Strings  ${resp}  True
+
+    END
+
+
+Verify Redfish Functional Version Is Same
+    [Documentation]  Verify the redfish firmware inventory path version is same as redfish managers.
+    [Tags]  Verify_Redfish_Functional_Version_Is_Same
+
+    # User defined state for software objects.
+    # Note: "Functional" term refers to firmware which system is currently booted with.
+
+    # sw_inv_dict:
+    #   [b9101858]:
+    #     [image_type]:                 BMC update
+    #     [image_id]:                   b9101858
+    #     [functional]:                 True
+    #     [version]:                    2.8.0-dev-150-g04508dc9f
+
+    ${sw_inv_dict}=  Get Functional Firmware  BMC image
+    ${sw_inv_dict}=  Get Non Functional Firmware  ${sw_inv_dict}  True
+
+    # /redfish/v1/Managers/bmc
+    # "FirmwareVersion": "2.8.0-dev-150-g04508dc9f"
+
+    ${firmware_version}=  Redfish.Get Attribute
+    ...  ${REDFISH_BASE_URI}Managers/bmc  FirmwareVersion
+
+    Should Be Equal  ${sw_inv_dict['version']}  ${firmware_version}
+
+
 Verify Redfish BIOS Version
     [Documentation]  Get host firmware version from system inventory.
     [Tags]  Verify_Redfish_BIOS_Version

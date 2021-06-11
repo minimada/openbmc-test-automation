@@ -176,8 +176,6 @@ Configure Loopback IP
 Add Valid IPv4 Address And Check Persistency
     [Documentation]  Add IPv4 address and check peristency.
     [Tags]  Add_Valid_IPv4_Addres_And_Check_Persistency
-    [Teardown]  Run Keywords
-    ...  Delete IP Address  ${test_ipv4_addr}  AND  Test Teardown Execution
 
     Add IP Address  ${test_ipv4_addr}  ${test_subnet_mask}  ${test_gateway}
 
@@ -185,6 +183,7 @@ Add Valid IPv4 Address And Check Persistency
     OBMC Reboot (off)
     Redfish.Login
     Verify IP On BMC  ${test_ipv4_addr}
+    Delete IP Address  ${test_ipv4_addr}
 
 Add Fourth Octet Threshold IP And Verify
     [Documentation]  Add fourth octet threshold IP and verify.
@@ -622,6 +621,16 @@ Configure Static IP Without Using Gateway And Verify
     Redfish.patch  ${REDFISH_NW_ETH_IFACE}${ethernet_interface}
     ...  body=&{payload}  valid_status_codes=[${HTTP_BAD_REQUEST}]
 
+
+Test Network Response On Specified Host State
+    [Documentation]  Verifying the BMC network response when host is on and off.
+    [Tags]  Test_Network_Response_On_Specified_Host_State
+    [Template]  Verify Network Response On Specified Host State
+
+    # host_state
+    on
+    off
+
 *** Keywords ***
 
 Test Setup Execution
@@ -878,3 +887,24 @@ Delete Multiple Static IPv4 Addresses
        Delete IP Address  ${ip}
     END
     Validate Network Config On BMC
+
+Verify Network Response On Specified Host State
+    [Documentation]  Verifying the BMC network response when host is on and off.
+    [Arguments]  ${host_state}
+
+    # Description of argument(s):
+    # host_state   if host_state is on then host is booted to operating system.
+    #              if host_state is off then host is power off.
+    #              (eg. on, off).
+
+    ${active_channel_config}=  Get Active Channel Config
+    ${ethernet_interface}=  Set Variable  ${active_channel_config['${CHANNEL_NUMBER}']['name']}
+
+    Run Keyword If  '${host_state}' == 'on'
+    ...    Redfish Power On  stack_mode=skip
+    ...  ELSE
+    ...    Redfish Power off  stack_mode=skip
+
+    Redfish.Get  ${REDFISH_NW_ETH_IFACE}${ethernet_interface}
+    Ping Host  ${OPENBMC_HOST}
+

@@ -42,32 +42,39 @@
 Packages required to be installed for OpenBmc Automation.
 Install the packages and it's dependencies via `pip`
 
-    REST base packages:
-    ```
+If using Python 3.x, use the corresponding `pip3` to install packages.
+Note: Older Python 2.x is not actively supported.
+
+REST base packages:
+```
     $ pip install -U requests
     $ pip install -U robotframework-requests
     $ pip install -U robotframework-httplibrary
-    ```
+```
 
-    Python redfish library packages:
-    For more detailed intstructions see [python-redfish-library](https://github.com/DMTF/python-redfish-library)
-    ```
+Python redfish library packages:
+For more detailed intstructions see [python-redfish-library](https://github.com/DMTF/python-redfish-library)
+```
     $ pip install redfish
-    ```
+```
 
-    SSH and SCP base packages:
-    For more detailed installation instructions see [robotframework-sshlibrary](https://pypi.python.org/pypi/robotframework-sshlibrary)
-    ```
+SSH and SCP base packages:
+For more detailed installation instructions see [robotframework-sshlibrary](https://pypi.python.org/pypi/robotframework-sshlibrary)
+```
     $ pip install robotframework-sshlibrary
     $ pip install robotframework-scplibrary
-    ```
+```
 
-    Installing tox:
-    ```
+Installing requirement dependencies:
+```
+    $ pip install -r requirements.txt
+```
+you'll find this file once your clone openbmc-test-automation repository.
+
+Installing tox:
+```
     $ pip install -U tox
-    ```
-
-If using Python 3.x, use the corresponding `pip3` to install packages.
+```
 
 ## OpenBMC Test Development ##
 
@@ -75,6 +82,7 @@ These documents contain details on developing OpenBMC test code and debugging.
 
  - [MAINTAINERS](MAINTAINERS): OpenBMC test code maintainers information.
  - [CONTRIBUTING.md](CONTRIBUTING.md): Coding guidelines.
+ - [Code Check Tools](https://github.com/openbmc/openbmc-test-automation/blob/master/docs/code_standards_check.md): To check common code misspellings, syntax and standard checks.
  - [REST-cheatsheet.md](https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md): Quick reference for some common
    curl commands required for legacy REST testing.
  - [REDFISH-cheatsheet.md](https://github.com/openbmc/docs/blob/master/REDFISH-cheatsheet.md): Quick reference for some common
