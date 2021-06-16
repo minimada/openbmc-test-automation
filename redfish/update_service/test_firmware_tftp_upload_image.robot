@@ -102,6 +102,7 @@ TFTP Download Install
     # Download image from TFTP server to BMC.
     Redfish.Post  /redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate
     ...  body={"TransferProtocol" : "TFTP", "ImageURI" : "${TFTP_SERVER}/${image_file_name}"}
+    ...  valid_status_codes=[${HTTP_OK}, ${HTTP_ACCEPTED}]
 
     Sleep  120s
 
@@ -158,6 +159,7 @@ Same Firmware Install Two Times
     # Download image from TFTP server via ImageURI to BMC.
     Redfish.Post  /redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate
     ...  body={"ImageURI": "tftp://${tftp_server}/${image_file_name}"}
+    ...  valid_status_codes=[${HTTP_OK}, ${HTTP_ACCEPTED}]
 
     ${image_version}=  Get Image Version From SFTP Server  ${SFTP_SERVER}  ${SFTP_USER}  ${SFTP_PATH}/${image_file_name}
     ${software_inventory_record}=  Get Software Inventory State By Version
